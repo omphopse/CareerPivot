@@ -1,4 +1,4 @@
-# 🧭 Career Pilot — AI Career Pivot Coach
+# 🧭 Career Pivot — AI Career Pivot Coach
 
 > **Bridging the gap between where you are and where you want to be.**  
 > An intelligent, forensic career pivot platform powered by **Google Gemini AI**, **React 19**, **TypeScript**, **Tailwind CSS**, and **Supabase**.
@@ -89,7 +89,7 @@ graph TD
 2. Open the **SQL Editor** in the Supabase dashboard.
 3. Paste and execute the contents of [`supabase/schema.sql`](./supabase/schema.sql).
 4. Copy your **Project URL** and **Anon Public API Key** from `Project Settings > API`.
-5. Add them to your `.env.local` or directly configure them via the **Settings (⚙️)** modal in Career Pilot.
+5. Add them to your `.env.local` or directly configure them via environment variables.
 
 ```env
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
@@ -97,7 +97,7 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 ```
 
-> **Note for Judges:** Career Pilot features a **Hybrid Engine**. If Supabase credentials or Gemini API keys are omitted, the application runs on high-fidelity simulation and reactive local storage with zero blockers!
+> **Note for Judges:** Career Pivot features a **Hybrid Engine**. If Supabase credentials or Gemini API keys are omitted, the application runs on high-fidelity simulation and reactive local storage with zero blockers!
 
 ---
 
@@ -105,10 +105,10 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/career-pilot.git
+git clone https://github.com/your-username/career-pivot.git
 
 # Enter project directory
-cd career-pilot
+cd career-pivot
 
 # Install dependencies
 npm install
@@ -118,16 +118,6 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
-
----
-
-## 🌐 Deploy to Vercel
-
-1. Push this repository to GitHub.
-2. Import the repository in [Vercel](https://vercel.com).
-3. The build command will automatically be `npm run build` and output directory `dist`.
-4. (Optional) Set `VITE_GEMINI_API_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` in Vercel Environment Variables.
-5. Deploy!
 
 ---
 
