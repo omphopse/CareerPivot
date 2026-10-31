@@ -24,7 +24,7 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzingStep, setAnalyzingStep] = useState<string>('');
-  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluatingQuestionIds, setEvaluatingQuestionIds] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Core Data States - initialized strictly from storage or null
@@ -44,9 +44,19 @@ export function App() {
     return storageService.getJobApplications();
   });
 
-  const [latestEvaluation, setLatestEvaluation] = useState<InterviewEvaluation | null>(() => {
+  const [evaluationsByQuestionId, setEvaluationsByQuestionId] = useState<Record<string, InterviewEvaluation>>(() => {
     const list = storageService.getInterviewEvaluations();
-    return list.length > 0 ? list[0] : null;
+    const map: Record<string, InterviewEvaluation> = {};
+    list.forEach((e) => {
+      if (e.questionId) {
+        map[e.questionId] = e;
+      }
+    });
+    return map;
+  });
+
+  const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, string>>(() => {
+    return storageService.getInterviewAnswers();
   });
 
   const [streakCount] = useState(1);
@@ -120,7 +130,9 @@ export function App() {
       setSprintPlan(planResult);
       setQuestions(generatedQuestions);
       setApplications([initialApp]);
-      setLatestEvaluation(null);
+      setEvaluationsByQuestionId({});
+      setAnswersByQuestionId({});
+      setEvaluatingQuestionIds([]);
 
       confetti({
         particleCount: 120,
@@ -143,14 +155,29 @@ export function App() {
     await storageService.saveSprintPlan(updated);
   };
 
+  const handleUpdateAnswer = (questionId: string, answer: string) => {
+    setAnswersByQuestionId((prev) => {
+      const updated = { ...prev, [questionId]: answer };
+      storageService.saveInterviewAnswers(updated);
+      return updated;
+    });
+  };
+
   const handleEvaluateAnswer = async (
     question: InterviewQuestion,
     answer: string
-  ): Promise<InterviewEvaluation> => {
-    setIsEvaluating(true);
+  ): Promise<void> => {
+    setEvaluatingQuestionIds((prev) => (prev.includes(question.id) ? prev : [...prev, question.id]));
+
     try {
       const evaluation = await aiService.evaluateInterviewAnswer(question, answer);
-      setLatestEvaluation(evaluation);
+      evaluation.questionId = question.id;
+
+      setEvaluationsByQuestionId((prev) => ({
+        ...prev,
+        [question.id]: evaluation
+      }));
+
       await storageService.saveInterviewEvaluation(evaluation);
 
       if (evaluation.score < 60) {
@@ -158,9 +185,10 @@ export function App() {
       } else {
         showToast(`AI Graded: ${evaluation.score}/100. Strong performance!`);
       }
-      return evaluation;
+    } catch (err: any) {
+      showToast(`Evaluation error for ${question.id}: ${err?.message || 'Failed to grade response'}`);
     } finally {
-      setIsEvaluating(false);
+      setEvaluatingQuestionIds((prev) => prev.filter((id) => id !== question.id));
     }
   };
 
@@ -189,7 +217,9 @@ export function App() {
       setSprintPlan(null);
       setQuestions([]);
       setApplications([]);
-      setLatestEvaluation(null);
+      setEvaluationsByQuestionId({});
+      setAnswersByQuestionId({});
+      setEvaluatingQuestionIds([]);
       showToast('Ready for new Resume & Job Description input.');
     }
   };
@@ -200,7 +230,9 @@ export function App() {
     setSprintPlan(null);
     setQuestions([]);
     setApplications([]);
-    setLatestEvaluation(null);
+    setEvaluationsByQuestionId({});
+    setAnswersByQuestionId({});
+    setEvaluatingQuestionIds([]);
     showToast('All data reset.');
   };
 
@@ -269,11 +301,13 @@ export function App() {
           <InterviewCoach
             sprintPlan={sprintPlan}
             questions={questions}
+            answersByQuestionId={answersByQuestionId}
+            evaluationsByQuestionId={evaluationsByQuestionId}
+            evaluatingQuestionIds={evaluatingQuestionIds}
+            onUpdateAnswer={handleUpdateAnswer}
             onEvaluateAnswer={handleEvaluateAnswer}
             onRecalibrateSprintPlan={handleRecalibrateSprintPlan}
             onNavigateToSprint={() => setActiveTab('sprint')}
-            isEvaluating={isEvaluating}
-            latestEvaluation={latestEvaluation}
           />
         )}
 

@@ -54,7 +54,8 @@ const STORAGE_KEYS = {
   SPRINT_PLAN: 'cp_sprint_plan_data',
   INTERVIEWS: 'cp_interviews_data',
   APPLICATIONS: 'cp_applications_data',
-  QUESTIONS: 'cp_questions_data'
+  QUESTIONS: 'cp_questions_data',
+  ANSWERS: 'cp_interview_answers'
 };
 
 export const storageService = {
@@ -188,6 +189,16 @@ export const storageService = {
     return raw ? JSON.parse(raw) : [];
   },
 
+  // Answers per question
+  saveInterviewAnswers(answers: Record<string, string>): void {
+    localStorage.setItem(STORAGE_KEYS.ANSWERS, JSON.stringify(answers));
+  },
+
+  getInterviewAnswers(): Record<string, string> {
+    const raw = localStorage.getItem(STORAGE_KEYS.ANSWERS);
+    return raw ? JSON.parse(raw) : {};
+  },
+
   // Reset/Clear Pivot Session
   clearPivotData(): void {
     localStorage.removeItem(STORAGE_KEYS.DIAGNOSIS);
@@ -195,5 +206,6 @@ export const storageService = {
     localStorage.removeItem(STORAGE_KEYS.INTERVIEWS);
     localStorage.removeItem(STORAGE_KEYS.APPLICATIONS);
     localStorage.removeItem(STORAGE_KEYS.QUESTIONS);
+    localStorage.removeItem(STORAGE_KEYS.ANSWERS);
   }
 };
