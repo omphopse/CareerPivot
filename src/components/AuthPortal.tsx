@@ -177,11 +177,11 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
         <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-indigo-500/30 shadow-2xl relative">
           {/* Error Banner */}
           {errorMessage && (
-            <div className="mb-5 p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-start space-x-2.5 text-xs text-rose-200 animate-fadeIn">
+            <div className="mb-5 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-start space-x-3 text-xs text-rose-200 animate-fadeIn">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <span className="font-bold">Supabase Authentication Notice</span>
-                <p>{errorMessage}</p>
+              <div className="space-y-1.5 flex-1">
+                <span className="font-bold text-rose-300">Supabase Authentication Notice</span>
+                <p className="leading-relaxed text-slate-200">{errorMessage}</p>
               </div>
             </div>
           )}

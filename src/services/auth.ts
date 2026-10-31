@@ -30,9 +30,27 @@ export const authService = {
       });
 
       if (error) {
+        let friendlyMessage = error.message;
+
+        if (
+          error.status === 504 ||
+          error.message?.includes('504') ||
+          error.message?.toLowerCase().includes('gateway timeout')
+        ) {
+          friendlyMessage =
+            'Supabase SMTP Gateway Timeout (504): Supabase could not connect to your configured SMTP mail server within 30 seconds. If using Gmail, make sure your SMTP Port is set to 587 (NOT 465) and your password is a 16-character Google App Password (not your personal account password).';
+        } else if (
+          error.status === 429 ||
+          error.message?.toLowerCase().includes('rate limit') ||
+          (error as any).code === 'over_email_send_rate_limit'
+        ) {
+          friendlyMessage =
+            'Supabase Email Rate Limit Exceeded (429): Supabase reached its hourly email quota (default is 3 emails/hour). Go to your Supabase Dashboard > Authentication > Rate Limits and increase the "Email rate limit" slider to 30 or 100, or verify your Custom SMTP settings.';
+        }
+
         return {
           success: false,
-          message: error.message || 'Failed to send OTP from Supabase. Please verify your Supabase email settings.'
+          message: friendlyMessage
         };
       }
 
@@ -41,9 +59,14 @@ export const authService = {
         message: `Verification code sent to ${cleanEmail}. Please check your email inbox and enter the 6-digit code.`
       };
     } catch (err: any) {
+      let msg = err?.message || 'Network error while contacting Supabase Auth.';
+      if (msg.includes('504') || msg.toLowerCase().includes('gateway timeout')) {
+        msg =
+          'Supabase SMTP Gateway Timeout (504): Supabase could not connect to your configured SMTP mail server. Please verify Port 587 and App Password in Supabase Dashboard.';
+      }
       return {
         success: false,
-        message: err?.message || 'Network error while contacting Supabase Auth.'
+        message: msg
       };
     }
   },
