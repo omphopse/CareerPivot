@@ -1,27 +1,18 @@
 import React, { useState } from 'react';
 import {
   Headphones,
+  Send,
+  Sparkles,
+  CheckCircle2,
   Mic,
   MicOff,
-  Sparkles,
-  Send,
-  AlertOctagon,
-  Award,
-  Zap,
-  ArrowRight,
   RefreshCw,
-  HelpCircle,
   ChevronDown,
   ChevronUp,
-  Lock,
-  CheckCircle2,
-  Clock
+  Award,
+  Layers
 } from 'lucide-react';
-import type {
-  InterviewQuestion,
-  InterviewEvaluation,
-  SprintPlan
-} from '../types';
+import type { InterviewQuestion, InterviewEvaluation, SprintPlan } from '../types';
 
 interface InterviewCoachProps {
   sprintPlan: SprintPlan;
@@ -33,8 +24,8 @@ interface InterviewCoachProps {
   onEvaluateAnswer: (question: InterviewQuestion, answer: string) => Promise<void>;
   onRecalibrateSprintPlan: (evaluation: InterviewEvaluation) => void;
   onNavigateToSprint: () => void;
-  onUpdateQuestion?: (questionId: string) => Promise<void>;
-  onUpdateAllQuestions?: () => Promise<void>;
+  onUpdateQuestion: (questionId: string) => Promise<void>;
+  onUpdateAllQuestions: () => Promise<void>;
 }
 
 export const InterviewCoach: React.FC<InterviewCoachProps> = ({
@@ -57,7 +48,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
       category: 'Core System Architecture',
       difficulty: 'Senior' as const,
       question: `How do you architect high-scale, resilient microservices for ${sprintPlan.targetRole} handling concurrent data consistency?`,
-      context: 'Tests deep architectural knowledge of distributed transactions, failure recovery, and concurrency.',
+      context: 'Tests understanding of distributed transactions, failure recovery, and concurrency.',
       keyPointsExpected: [
         'Idempotent processing and deduplication',
         'Database isolation levels and locking mechanisms',
@@ -68,42 +59,23 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
   ];
 
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number>(0);
-  const [showPreviousForSlot, setShowPreviousForSlot] = useState<Record<number, boolean>>({});
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [showExpectedPoints, setShowExpectedPoints] = useState<boolean>(false);
   const [recalibratedSuccess, setRecalibratedSuccess] = useState<boolean>(false);
+  const [isUpdatingQuestion, setIsUpdatingQuestion] = useState<boolean>(false);
+  const [isUpdatingAll, setIsUpdatingAll] = useState<boolean>(false);
 
   const safeIndex = selectedSlotIndex < activeQuestions.length ? selectedSlotIndex : 0;
   const currentQ = activeQuestions[safeIndex];
   const isCurrentEvaluating = evaluatingQuestionIds.includes(currentQ.id);
 
-  // Link evaluation: check either currentQ.id or previousQuestion.id
   const currentEvaluation =
     evaluationsByQuestionId[currentQ.id] ||
     (currentQ.previousQuestion ? evaluationsByQuestionId[currentQ.previousQuestion.id] : null);
 
   const currentAnswer = answersByQuestionId[currentQ.id] || '';
-  const isShowingPrevious = Boolean(showPreviousForSlot[safeIndex] && currentQ.previousQuestion);
-  const displayedQuestion = isShowingPrevious && currentQ.previousQuestion
-    ? {
-        role: currentQ.role,
-        category: currentQ.category,
-        difficulty: currentQ.difficulty,
-        question: currentQ.previousQuestion.question,
-        context: currentQ.previousQuestion.context,
-        keyPointsExpected: currentQ.keyPointsExpected
-      }
-    : currentQ;
 
-  const allThreeAnswered =
-    activeQuestions.length >= 3 &&
-    activeQuestions.every(
-      (q) =>
-        evaluationsByQuestionId[q.id] ||
-        (q.previousQuestion && evaluationsByQuestionId[q.previousQuestion.id])
-    );
-
-  // Web Speech API dictation
+  // Speech recognition dictation
   const handleToggleDictation = () => {
     if (isCurrentEvaluating) return;
 
@@ -147,11 +119,8 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!currentAnswer.trim() || isCurrentEvaluating) {
-      return;
-    }
+    if (!currentAnswer.trim() || isCurrentEvaluating) return;
     setRecalibratedSuccess(false);
-    setShowPreviousForSlot((prev) => ({ ...prev, [safeIndex]: false }));
     await onEvaluateAnswer(currentQ, currentAnswer.trim());
   };
 
@@ -161,265 +130,182 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
     setRecalibratedSuccess(true);
   };
 
+  const handleUpdateCurrentQ = async () => {
+    setIsUpdatingQuestion(true);
+    try {
+      await onUpdateQuestion(currentQ.id);
+    } finally {
+      setIsUpdatingQuestion(false);
+    }
+  };
+
+  const handleUpdateAll = async () => {
+    setIsUpdatingAll(true);
+    try {
+      await onUpdateAllQuestions();
+    } finally {
+      setIsUpdatingAll(false);
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800">
+    <div className="space-y-6 animate-fadeIn">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#D9CFB9]">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center space-x-2.5">
-            <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-              <Headphones className="w-5 h-5" />
-            </div>
-            <span>AI Technical Interview Coach & Rubric Evaluator</span>
+          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#293C3A] flex items-center space-x-2">
+            <Headphones className="w-6 h-6 text-[#C95F48]" />
+            <span>Practice Interview</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Questions generated for {sprintPlan.targetRole}. Each answered question dynamically updates with a new technical scenario.
+          <p className="text-xs text-[#6B7169] mt-0.5">
+            Answer questions tailored for {sprintPlan.targetRole} and get detailed feedback.
           </p>
         </div>
 
-        {/* Question Selector dropdown / pills */}
-        <div className="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0">
-          {activeQuestions.map((q, idx) => {
-            const isEvaluatingThis = evaluatingQuestionIds.includes(q.id);
-            const evalObj =
-              evaluationsByQuestionId[q.id] ||
-              (q.previousQuestion ? evaluationsByQuestionId[q.previousQuestion.id] : null);
-            const hasEval = Boolean(evalObj);
-            const evalScore = evalObj?.score;
+        {/* Action Controls */}
+        <div className="flex items-center space-x-2 self-start sm:self-auto">
+          <button
+            onClick={handleUpdateCurrentQ}
+            disabled={isUpdatingQuestion || isCurrentEvaluating}
+            className="art-btn-secondary px-3 py-1.5 text-xs font-semibold flex items-center space-x-1 cursor-pointer disabled:opacity-50"
+            title="Generate a fresh technical question for this slot"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingQuestion ? 'animate-spin' : ''}`} />
+            <span>New Question</span>
+          </button>
 
-            return (
-              <button
-                key={q.id || idx}
-                onClick={() => {
-                  setSelectedSlotIndex(idx);
-                  setRecalibratedSuccess(false);
-                }}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  safeIndex === idx
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                <span>Q{idx + 1}</span>
-                {q.isUpdated && (
-                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-emerald-400/20 text-emerald-300">
-                    R{q.round || 2}
-                  </span>
-                )}
-                {isEvaluatingThis && (
-                  <RefreshCw className="w-3 h-3 text-amber-300 animate-spin" />
-                )}
-                {!isEvaluatingThis && hasEval && (
-                  <span
-                    className={`px-1 rounded text-[10px] font-bold ${
-                      evalScore! >= 75
-                        ? 'bg-emerald-500/20 text-emerald-300'
-                        : evalScore! >= 50
-                        ? 'bg-amber-500/20 text-amber-300'
-                        : 'bg-rose-500/20 text-rose-300'
-                    }`}
-                  >
-                    {evalScore}%
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          {onUpdateAllQuestions && (
-            <button
-              onClick={onUpdateAllQuestions}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 cursor-pointer"
-              title="Update all 3 questions with brand new technical scenarios"
-            >
-              <RefreshCw className="w-3 h-3 text-cyan-400" />
-              <span>Update All 3</span>
-            </button>
-          )}
+          <button
+            onClick={handleUpdateAll}
+            disabled={isUpdatingAll || isCurrentEvaluating}
+            className="art-btn-secondary px-3 py-1.5 text-xs font-semibold flex items-center space-x-1 cursor-pointer disabled:opacity-50"
+            title="Generate all 3 questions fresh"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingAll ? 'animate-spin' : ''}`} />
+            <span>Regenerate All 3</span>
+          </button>
         </div>
       </div>
 
-      {/* Celebration Banner when all 3 questions have been evaluated */}
-      {allThreeAnswered && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-indigo-950/70 to-slate-900 border border-emerald-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-fadeIn shadow-lg">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0">
-              <Award className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white">
-                All 3 Interview Questions Answered & Updated!
-              </h4>
-              <p className="text-xs text-slate-300">
-                All 3 questions have been updated with new technical challenges for your next round of practice.
-              </p>
-            </div>
-          </div>
-          {onUpdateAllQuestions && (
+      {/* Question Selector Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {activeQuestions.map((q, idx) => {
+          const isSelected = idx === safeIndex;
+          const hasEvaluation = Boolean(evaluationsByQuestionId[q.id]);
+
+          return (
             <button
-              onClick={onUpdateAllQuestions}
-              className="px-4 py-2 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 flex items-center space-x-1.5 shrink-0 cursor-pointer"
+              key={q.id || idx}
+              onClick={() => setSelectedSlotIndex(idx)}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-colors cursor-pointer shrink-0 ${
+                isSelected
+                  ? 'bg-[#C95F48] text-white shadow-xs'
+                  : 'bg-[#FFF7E8] text-[#6B7169] hover:text-[#293C3A] border border-[#D9CFB9]'
+              }`}
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Start Round 2 (Update All 3)</span>
+              <span>Question {idx + 1}</span>
+              {hasEvaluation && (
+                <CheckCircle2 className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-[#466E67]'}`} />
+              )}
             </button>
-          )}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
+      {/* Main Two-Column Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left 6 Cols: Question Card & Answer Input */}
-        <div className="lg:col-span-6 space-y-6">
+        {/* Left Column: Question & Answer Editor (6 cols) */}
+        <div className="lg:col-span-6 space-y-4">
           {/* Question Prompt Card */}
-          <div className="glass-panel p-6 rounded-3xl space-y-4">
+          <div className="art-card p-6 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 border border-indigo-500/30 text-indigo-300">
-                  {displayedQuestion.difficulty.toUpperCase()} LEVEL
-                </span>
-                <span className="text-xs text-slate-400 font-medium">{displayedQuestion.category}</span>
-                {currentQ.isUpdated && !isShowingPrevious && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center space-x-1">
-                    <Sparkles className="w-3 h-3 text-emerald-400" />
-                    <span>Updated Question (Round {currentQ.round || 2})</span>
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center space-x-2">
-                {onUpdateQuestion && !isCurrentEvaluating && (
-                  <button
-                    onClick={() => onUpdateQuestion(currentQ.id)}
-                    className="text-[11px] text-slate-400 hover:text-indigo-300 flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 transition-colors cursor-pointer"
-                    title="Generate a fresh technical question for this slot"
-                  >
-                    <RefreshCw className="w-3 h-3 text-indigo-400" />
-                    <span>Update Q{safeIndex + 1}</span>
-                  </button>
-                )}
-                <span className="text-[11px] text-cyan-400 font-semibold">{displayedQuestion.role}</span>
-              </div>
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-[#E8EBDD] text-[#38564F]">
+                {currentQ.category}
+              </span>
+              <span className="text-[11px] text-[#6B7169] font-medium">
+                {currentQ.difficulty} Level
+              </span>
             </div>
 
-            {/* Previous Question Notice & Toggle */}
-            {currentQ.previousQuestion && (
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-indigo-500/30 text-xs">
-                <span className="text-slate-300 flex items-center space-x-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>
-                    {isShowingPrevious
-                      ? 'Viewing previously evaluated question'
-                      : `Previous question evaluated (${currentEvaluation?.score || 0}/100). Updated question loaded!`}
-                  </span>
-                </span>
-                <button
-                  onClick={() =>
-                    setShowPreviousForSlot((prev) => ({
-                      ...prev,
-                      [safeIndex]: !prev[safeIndex]
-                    }))
-                  }
-                  className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline cursor-pointer shrink-0 ml-2"
-                >
-                  {isShowingPrevious ? 'Back to Updated Question' : 'View Previous Question'}
-                </button>
-              </div>
-            )}
-
-            <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
-              {displayedQuestion.question}
+            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#293C3A] leading-snug">
+              {currentQ.question}
             </h2>
 
-            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/70 p-3.5 rounded-xl border border-slate-800">
-              <strong className="text-amber-400">Context & Scenario: </strong>
-              {displayedQuestion.context}
-            </p>
-
-            {/* Collapsible Key Concepts Hint */}
-            <div className="pt-1">
-              <button
-                onClick={() => setShowExpectedPoints(!showExpectedPoints)}
-                className="text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center space-x-1 cursor-pointer"
-              >
-                <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{showExpectedPoints ? 'Hide Expected Key Concepts' : 'Show Expected Key Concepts'}</span>
-                {showExpectedPoints ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              </button>
-
-              {showExpectedPoints && (
-                <ul className="mt-2.5 space-y-1.5 p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300">
-                  {displayedQuestion.keyPointsExpected.map((point, idx) => (
-                    <li key={idx} className="flex items-start space-x-2">
-                      <span className="text-indigo-400 mt-0.5">•</span>
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {/* Answer Input Box */}
-          <div className="glass-panel p-6 rounded-3xl space-y-4 relative">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-1.5">
-                <span>Your Technical Response (Q{safeIndex + 1})</span>
-              </label>
-              <span className="text-[11px] text-slate-500">{currentAnswer.length} characters</span>
-            </div>
-
-            {/* Locked alert if evaluating */}
-            {isCurrentEvaluating && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center space-x-2 text-xs text-amber-200">
-                <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Evaluation in progress. Answer is locked while Gemini grades your response.</span>
-              </div>
+            {currentQ.context && (
+              <p className="text-xs text-[#6B7169] leading-relaxed">
+                <strong className="text-[#293C3A]">Scenario:</strong> {currentQ.context}
+              </p>
             )}
 
+            {/* Expected Points Toggle */}
+            {currentQ.keyPointsExpected && currentQ.keyPointsExpected.length > 0 && (
+              <div className="pt-2 border-t border-[#D9CFB9]">
+                <button
+                  type="button"
+                  onClick={() => setShowExpectedPoints(!showExpectedPoints)}
+                  className="flex items-center space-x-1 text-xs font-semibold text-[#466E67] hover:underline cursor-pointer"
+                >
+                  <span>What the interviewer expects</span>
+                  {showExpectedPoints ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {showExpectedPoints && (
+                  <ul className="mt-2 space-y-1 text-xs text-[#6B7169] pl-4 list-disc">
+                    {currentQ.keyPointsExpected.map((pt, i) => (
+                      <li key={i}>{pt}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Answer Editor */}
+          <div className="art-card p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <label htmlFor="answer-input" className="text-xs font-bold text-[#293C3A]">
+                Your Response (Question {safeIndex + 1})
+              </label>
+              <span className="text-[11px] text-[#6B7169]">
+                {currentAnswer.length} characters
+              </span>
+            </div>
+
             <textarea
-              rows={8}
-              disabled={isCurrentEvaluating}
+              id="answer-input"
+              rows={9}
               value={currentAnswer}
               onChange={(e) => onUpdateAnswer(currentQ.id, e.target.value)}
-              placeholder="Explain your architectural approach, concurrency patterns, edge cases, and code structure..."
-              className={`w-full p-4 rounded-xl bg-slate-950 border text-slate-200 text-xs sm:text-sm leading-relaxed focus:outline-none transition-colors ${
-                isCurrentEvaluating
-                  ? 'border-amber-500/40 opacity-70 cursor-not-allowed'
-                  : 'border-slate-800 focus:border-indigo-500'
-              }`}
+              placeholder="Type your response as you would speak it in an interview..."
+              className="art-input w-full p-3.5 text-xs leading-relaxed"
             />
 
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
-                disabled={isCurrentEvaluating}
                 onClick={handleToggleDictation}
-                className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${
+                disabled={isCurrentEvaluating}
+                className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border transition-colors cursor-pointer ${
                   isRecording
-                    ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 animate-pulse'
-                    : isCurrentEvaluating
-                    ? 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'
-                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
+                    ? 'bg-[#FAECE8] border-[#E58B70] text-[#C95F48]'
+                    : 'bg-[#FFF7E8] border-[#D9CFB9] text-[#6B7169] hover:text-[#293C3A]'
                 }`}
               >
                 {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                <span>{isRecording ? 'Listening...' : 'Voice Dictate'}</span>
+                <span>{isRecording ? 'Stop Recording' : 'Voice Input'}</span>
               </button>
 
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={isCurrentEvaluating || !currentAnswer.trim()}
-                className="flex items-center space-x-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
+                className="art-btn-primary px-5 py-2 text-xs font-bold flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
               >
                 {isCurrentEvaluating ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Grading Q{safeIndex + 1}...</span>
-                  </>
+                  <span>Evaluating...</span>
                 ) : (
                   <>
                     <Send className="w-3.5 h-3.5" />
-                    <span>{currentEvaluation ? 'Submit & Grade Answer' : 'Evaluate with AI Rubrics'}</span>
+                    <span>Get AI Feedback</span>
                   </>
                 )}
               </button>
@@ -427,226 +313,129 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
           </div>
         </div>
 
-        {/* Right 6 Cols: Evaluation Section Strictly for Current Question */}
-        <div className="lg:col-span-6 space-y-6">
-          {/* Active In-Progress Evaluating State */}
+        {/* Right Column: AI Feedback & Model Answer (6 cols) */}
+        <div className="lg:col-span-6 space-y-4">
           {isCurrentEvaluating ? (
-            <div className="glass-panel p-8 rounded-3xl h-full flex flex-col items-center justify-center text-center space-y-4 border border-amber-500/30 animate-pulse">
-              <div className="p-4 rounded-2xl bg-amber-500/10 text-amber-400">
-                <RefreshCw className="w-8 h-8 animate-spin" />
+            <div className="art-card p-12 flex flex-col items-center justify-center text-center space-y-3">
+              <div className="w-10 h-10 rounded-full border-3 border-[#C95F48]/20 border-t-[#C95F48] animate-spin" />
+              <div className="font-editorial text-base font-bold text-[#293C3A]">
+                Evaluating Your Answer
               </div>
-              <div className="max-w-xs space-y-2">
-                <h3 className="text-base font-bold text-white">Grading Question {safeIndex + 1}</h3>
-                <p className="text-xs text-amber-200">
-                  Gemini is evaluating your answer against technical depth, system architecture, clarity, and evidence rubrics.
-                </p>
-                <p className="text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-                  💡 You can freely navigate to other questions or tabs—this evaluation will complete in the background and update automatically.
-                </p>
-              </div>
+              <p className="text-xs text-[#6B7169] max-w-xs">
+                Reviewing technical depth, structure, and clarity...
+              </p>
             </div>
           ) : currentEvaluation ? (
-            /* Evaluated Result Specifically for This Question */
-            <div className="glass-panel p-6 rounded-3xl space-y-6 border border-indigo-500/30 relative overflow-hidden animate-fadeIn">
-              {/* Header with Score & Verdict */}
-              <div className="flex items-start justify-between pb-4 border-b border-slate-800">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    AI Rubric Evaluation for Question {safeIndex + 1}
+            <div className="art-card p-6 space-y-5">
+              {/* Score Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#D9CFB9]">
+                <div className="flex items-center space-x-2">
+                  <Award className="w-5 h-5 text-[#C95F48]" />
+                  <span className="font-editorial text-xl font-bold text-[#293C3A]">
+                    Feedback &amp; Scoring
                   </span>
-                  <div className="flex items-baseline space-x-3 mt-1">
-                    <span className="text-3xl sm:text-4xl font-extrabold text-white">
-                      {currentEvaluation.score}
-                      <span className="text-sm font-normal text-slate-400">/100</span>
-                    </span>
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        currentEvaluation.verdict === 'Pass'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                          : currentEvaluation.verdict === 'Needs Improvement'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                      }`}
-                    >
-                      {currentEvaluation.verdict}
-                    </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${
+                    currentEvaluation.verdict === 'Pass'
+                      ? 'bg-[#E8EBDD] text-[#38564F]'
+                      : 'bg-[#FAECE8] text-[#C95F48]'
+                  }`}>
+                    {currentEvaluation.verdict}
+                  </span>
+                  <div className="text-sm font-bold px-3 py-1 rounded-lg bg-[#E8EBDD] text-[#38564F]">
+                    Score: {currentEvaluation.score} / 100
                   </div>
                 </div>
-
-                {/* Recalibrate Sprint CTA button */}
-                <button
-                  onClick={handleTriggerRecalibration}
-                  className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    recalibratedSuccess
-                      ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
-                      : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/20'
-                  }`}
-                  title="Dynamically modifies sprint plan based on this evaluation"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>{recalibratedSuccess ? '✓ Sprint Extended!' : 'Sync Weakness & Extend Sprint'}</span>
-                </button>
               </div>
 
-              {/* Evaluated Question & Submitted Answer Card */}
-              <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
-                <div>
-                  <span className="text-indigo-400 font-bold uppercase tracking-wider text-[10px]">
-                    Evaluated Question
-                  </span>
-                  <p className="text-slate-200 font-medium mt-0.5 leading-snug">
-                    {currentEvaluation.questionText}
-                  </p>
+              {/* Rubric Breakdown */}
+              {currentEvaluation.rubrics && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                  <div className="p-2 rounded-lg bg-[#E8EBDD]/50 border border-[#D9CFB9]">
+                    <span className="text-[10px] text-[#6B7169] block">Tech Depth</span>
+                    <strong className="text-[#293C3A]">{currentEvaluation.rubrics.technicalDepth}%</strong>
+                  </div>
+                  <div className="p-2 rounded-lg bg-[#E8EBDD]/50 border border-[#D9CFB9]">
+                    <span className="text-[10px] text-[#6B7169] block">Architecture</span>
+                    <strong className="text-[#293C3A]">{currentEvaluation.rubrics.systemArchitecture}%</strong>
+                  </div>
+                  <div className="p-2 rounded-lg bg-[#E8EBDD]/50 border border-[#D9CFB9]">
+                    <span className="text-[10px] text-[#6B7169] block">Clarity</span>
+                    <strong className="text-[#293C3A]">{currentEvaluation.rubrics.clarity}%</strong>
+                  </div>
+                  <div className="p-2 rounded-lg bg-[#E8EBDD]/50 border border-[#D9CFB9]">
+                    <span className="text-[10px] text-[#6B7169] block">Evidence</span>
+                    <strong className="text-[#293C3A]">{currentEvaluation.rubrics.evidenceAndExamples}%</strong>
+                  </div>
                 </div>
-                {currentEvaluation.userAnswer && (
-                  <div className="pt-2 border-t border-slate-900">
-                    <span className="text-slate-400 font-semibold text-[11px]">
-                      Your Submitted Response:
-                    </span>
-                    <p className="text-slate-300 italic text-[11px] mt-0.5 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 leading-relaxed">
-                      "{currentEvaluation.userAnswer}"
-                    </p>
+              )}
+
+              {/* Strengths & Improvements */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {currentEvaluation.strongPoints && currentEvaluation.strongPoints.length > 0 && (
+                  <div className="p-3 rounded-xl bg-[#E8EBDD]/60 border border-[#C5D5BE] space-y-1">
+                    <span className="font-bold text-[#38564F] block">Strong Points:</span>
+                    <ul className="space-y-1 text-[#293C3A] pl-3 list-disc">
+                      {currentEvaluation.strongPoints.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {currentEvaluation.improvementAreas && currentEvaluation.improvementAreas.length > 0 && (
+                  <div className="p-3 rounded-xl bg-[#FAECE8]/60 border border-[#E58B70]/50 space-y-1">
+                    <span className="font-bold text-[#C95F48] block">Areas to Improve:</span>
+                    <ul className="space-y-1 text-[#293C3A] pl-3 list-disc">
+                      {currentEvaluation.improvementAreas.map((im, i) => (
+                        <li key={i}>{im}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>
 
-              {/* 4 Rubric Category Bars */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Scoring Rubric Breakdown
-                </h3>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Technical Depth</span>
-                      <span className="font-bold text-white">{currentEvaluation.rubrics.technicalDepth}%</span>
-                    </div>
-                    <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className="bg-indigo-500 h-1.5 rounded-full"
-                        style={{ width: `${currentEvaluation.rubrics.technicalDepth}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">System Architecture</span>
-                      <span className="font-bold text-white">{currentEvaluation.rubrics.systemArchitecture}%</span>
-                    </div>
-                    <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className="bg-cyan-500 h-1.5 rounded-full"
-                        style={{ width: `${currentEvaluation.rubrics.systemArchitecture}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Clarity & Structure</span>
-                      <span className="font-bold text-white">{currentEvaluation.rubrics.clarity}%</span>
-                    </div>
-                    <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className="bg-amber-500 h-1.5 rounded-full"
-                        style={{ width: `${currentEvaluation.rubrics.clarity}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Evidence & Guarantees</span>
-                      <span className="font-bold text-white">{currentEvaluation.rubrics.evidenceAndExamples}%</span>
-                    </div>
-                    <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className="bg-emerald-500 h-1.5 rounded-full"
-                        style={{ width: `${currentEvaluation.rubrics.evidenceAndExamples}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Identified Weak Topics Tagged */}
-              {currentEvaluation.weakTopics.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-[11px] font-bold text-rose-400 uppercase tracking-wider flex items-center space-x-1">
-                    <AlertOctagon className="w-3.5 h-3.5" />
-                    <span>Identified Weak Topics to Bridge</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {currentEvaluation.weakTopics.map((topic, i) => (
-                      <span
-                        key={i}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/15 border border-rose-500/30 text-rose-300"
-                      >
-                        ⚠️ {topic}
-                      </span>
-                    ))}
+              {/* Model Answer */}
+              {currentEvaluation.suggestedAnswer && (
+                <div className="space-y-2 pt-2 border-t border-[#D9CFB9]">
+                  <span className="text-xs font-bold text-[#293C3A] flex items-center space-x-1">
+                    <Sparkles className="w-3.5 h-3.5 text-[#D8B35F]" />
+                    <span>Suggested Model Response</span>
+                  </span>
+                  <div className="p-3.5 rounded-xl bg-[#F5EBD6] border border-[#D9CFB9] text-xs text-[#293C3A] leading-relaxed">
+                    {currentEvaluation.suggestedAnswer}
                   </div>
                 </div>
               )}
 
-              {/* Critical Improvement Areas */}
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Improvement Areas & Gaps
-                </h3>
-                <ul className="space-y-1.5 text-xs">
-                  {currentEvaluation.improvementAreas.map((item, idx) => (
-                    <li key={idx} className="flex items-start space-x-2 text-slate-300">
-                      <span className="text-rose-400 font-bold shrink-0 mt-0.5">✕</span>
-                      <span className="leading-snug">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {/* Recalibrate Sprint Plan CTA */}
+              <div className="pt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleTriggerRecalibration}
+                  className="art-btn-secondary px-3.5 py-2 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-[#C95F48]" />
+                  <span>Update Learning Plan with this Feedback</span>
+                </button>
 
-              {/* Suggested Senior Answer Box */}
-              <div className="space-y-2 p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 text-xs">
-                <div className="text-xs font-bold text-indigo-300 flex items-center space-x-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Gold-Standard Senior Answer</span>
-                </div>
-                <p className="text-slate-200 leading-relaxed italic">{currentEvaluation.suggestedAnswer}</p>
+                {recalibratedSuccess && (
+                  <span className="text-xs text-[#466E67] font-semibold">
+                    Plan updated!
+                  </span>
+                )}
               </div>
-
-              {recalibratedSuccess && (
-                <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-between text-xs text-amber-200">
-                  <div className="space-y-0.5">
-                    <span className="font-bold flex items-center space-x-1 text-amber-300">
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>Sprint Dynamically Extended!</span>
-                    </span>
-                    <p className="text-[11px] text-slate-300">
-                      Added Day {sprintPlan.days.length} dedicated to remedial practice for {currentEvaluation.weakTopics[0] || 'this weakness'}.
-                    </p>
-                  </div>
-                  <button
-                    onClick={onNavigateToSprint}
-                    className="font-bold underline text-amber-300 hover:text-white flex items-center space-x-1 cursor-pointer shrink-0 ml-3"
-                  >
-                    <span>View Day {sprintPlan.days.length}</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
             </div>
           ) : (
-            /* Empty State: Shown when this specific question has NOT been evaluated yet */
-            <div className="glass-panel p-8 rounded-3xl h-full flex flex-col items-center justify-center text-center space-y-4 text-slate-400 animate-fadeIn">
-              <div className="p-4 rounded-2xl bg-indigo-500/10 text-indigo-400">
-                <Award className="w-8 h-8" />
-              </div>
-              <div className="max-w-xs space-y-1.5">
-                <h3 className="text-base font-bold text-white">No Evaluation for Question {safeIndex + 1} Yet</h3>
-                <p className="text-xs text-slate-400">
-                  Type your technical answer on the left or use voice dictation and click <strong className="text-indigo-300">Evaluate with AI Rubrics</strong> to grade this question.
-                </p>
-              </div>
+            <div className="art-card p-10 flex flex-col items-center justify-center text-center space-y-3">
+              <Headphones className="w-8 h-8 text-[#D9CFB9]" />
+              <h3 className="font-editorial text-base font-bold text-[#293C3A]">
+                No Feedback Yet
+              </h3>
+              <p className="text-xs text-[#6B7169] max-w-xs leading-relaxed">
+                Type your answer on the left and click <strong>Get AI Feedback</strong> to see detailed scoring and a model response.
+              </p>
             </div>
           )}
         </div>

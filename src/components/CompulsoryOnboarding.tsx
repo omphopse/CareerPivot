@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
 import {
-  Compass,
   Upload,
   FileText,
   Target,
-  Sparkles,
-  RefreshCw,
-  CheckCircle2,
   AlertCircle,
-  FileCheck,
-  LogOut
+  LogOut,
+  ArrowRight
 } from 'lucide-react';
 import type { AuthUser } from '../types';
+import { PicassoCareerCompass } from './ArtIllustrations';
 
 interface CompulsoryOnboardingProps {
   onStartAnalysis: (resume: string, jd: string, targetRole?: string, targetCompany?: string) => Promise<void>;
@@ -83,180 +80,180 @@ export const CompulsoryOnboarding: React.FC<CompulsoryOnboardingProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl w-full mx-auto space-y-8 animate-fadeIn">
-        {/* Top User Bar */}
+    <div className="min-h-screen bg-[#F5EBD6] text-[#293C3A] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl w-full mx-auto space-y-6">
+        {/* Clean, compact account header */}
         {currentUser && onSignOut && (
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 text-xs text-slate-400">
-            <span className="flex items-center space-x-1.5">
-              <span>Account:</span>
-              <strong className="text-white">{currentUser.email}</strong>
-            </span>
+          <div className="flex items-center justify-between pb-3 border-b border-[#D9CFB9] text-xs text-[#6B7169]">
+            <span>Signed in as <strong className="text-[#293C3A]">{currentUser.email}</strong></span>
             <button
               onClick={onSignOut}
-              className="flex items-center space-x-1 text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
+              className="flex items-center space-x-1 text-[#6B7169] hover:text-[#C95F48] transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Log out</span>
+              <span>Sign out</span>
             </button>
           </div>
         )}
 
-        {/* Brand Header */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-0.5 shadow-xl shadow-indigo-500/20 mb-2">
-            <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-              <Compass className="w-7 h-7 text-indigo-400 animate-pulse" />
-            </div>
+        {/* Page Heading */}
+        <div className="text-center space-y-2">
+          <div className="flex justify-center mb-1">
+            <PicassoCareerCompass size={40} />
           </div>
-
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Welcome to <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400">Career Pilot</span>
+          <h1 className="font-editorial text-3xl sm:text-4xl font-bold text-[#293C3A] tracking-tight">
+            Start Your Career Assessment
           </h1>
-          <p className="text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
-            AI-powered career pivot coach. Provide your current resume and your target job description to begin your live forensic audit and personalized learning sprint.
+          <p className="text-sm text-[#6B7169] max-w-xl mx-auto leading-relaxed">
+            Upload your resume and add a job description. We'll help you find the skills you need to improve.
           </p>
-
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Compulsory Onboarding • Live AI Intake</span>
-          </div>
         </div>
 
         {/* Error Alert */}
         {errorMsg && (
-          <div className="p-4 rounded-2xl bg-rose-950/60 border border-rose-500/50 flex items-center space-x-3 text-xs text-rose-200">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-[#FAECE8] border border-[#E58B70] flex items-center space-x-2.5 text-xs text-[#B54E38]">
+            <AlertCircle className="w-4 h-4 text-[#C95F48] shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
-        {/* Intake Form */}
-        <form onSubmit={handleSubmit} className="glass-panel p-6 sm:p-8 rounded-3xl space-y-8 border border-slate-800 shadow-2xl relative overflow-hidden">
+        {/* Main Intake Form Card */}
+        <form
+          onSubmit={handleSubmit}
+          className="art-card p-6 sm:p-8 space-y-6 relative overflow-hidden"
+        >
           {/* Progress Overlay while analyzing */}
           {isAnalyzing && (
-            <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 space-y-6 text-center animate-fadeIn">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin" />
-                <Sparkles className="w-6 h-6 text-indigo-400 absolute inset-0 m-auto" />
-              </div>
-              <div className="space-y-2 max-w-md">
-                <h3 className="text-lg font-bold text-white">Analyzing Your Career Pivot</h3>
-                <p className="text-xs sm:text-sm text-indigo-300 font-medium animate-pulse">
-                  {analyzingStep || 'Gemini 3.8 Flash is forensically auditing your profile...'}
+            <div className="absolute inset-0 z-50 bg-[#FFF7E8]/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 space-y-4 text-center">
+              <div className="w-12 h-12 rounded-full border-3 border-[#C95F48]/20 border-t-[#C95F48] animate-spin" />
+              <div className="space-y-1 max-w-sm">
+                <h3 className="font-editorial text-lg font-bold text-[#293C3A]">
+                  Analyzing Your Skills
+                </h3>
+                <p className="text-xs text-[#6B7169] leading-relaxed">
+                  {analyzingStep || 'Comparing your experience with the job requirements...'}
                 </p>
-                <div className="w-64 h-1.5 bg-slate-800 rounded-full mx-auto overflow-hidden mt-4">
-                  <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 animate-pulse w-3/4" />
-                </div>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Step 1: Resume Upload / Paste */}
-            <div className="space-y-3">
+          {/* Dual Input Columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 1. Resume Input Card */}
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center space-x-2">
-                  <div className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[11px] font-mono">1</div>
-                  <FileText className="w-4 h-4 text-indigo-400" />
-                  <span>Your Current Resume</span>
+                <label className="text-xs font-bold text-[#293C3A] flex items-center space-x-1.5">
+                  <FileText className="w-4 h-4 text-[#C95F48]" />
+                  <span>Your Resume</span>
                 </label>
-                <span className="text-[11px] text-slate-500">{resumeText.length} characters</span>
+                {resumeFileName ? (
+                  <span className="text-[11px] text-[#466E67] font-medium truncate max-w-[150px]">
+                    {resumeFileName}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-[#6B7169]">{resumeText.length} characters</span>
+                )}
               </div>
 
-              {/* Upload file button / dropzone */}
-              <label className="flex items-center justify-center space-x-2 px-4 py-3 rounded-xl border border-dashed border-slate-700 hover:border-indigo-500 bg-slate-900/60 hover:bg-slate-900 cursor-pointer transition-colors text-xs text-slate-300">
-                <Upload className="w-4 h-4 text-indigo-400" />
-                <span>{resumeFileName ? `Loaded: ${resumeFileName}` : 'Upload Resume (.pdf, .txt, .md)'}</span>
+              {/* Upload Button */}
+              <label className="flex items-center justify-center space-x-2 py-2 px-3 border border-dashed border-[#D9CFB9] hover:border-[#C95F48] bg-[#F5EBD6]/50 rounded-xl cursor-pointer text-xs font-semibold text-[#6B7169] hover:text-[#293C3A] transition-colors">
+                <Upload className="w-3.5 h-3.5 text-[#C95F48]" />
+                <span>Upload resume (.pdf, .txt, .md)</span>
                 <input
                   type="file"
-                  accept=".pdf,.txt,.md,.doc,.docx"
+                  accept=".pdf,.txt,.md"
                   onChange={handleResumeFileUpload}
                   className="hidden"
                 />
               </label>
 
               <textarea
-                rows={12}
-                required
+                rows={11}
                 value={resumeText}
                 onChange={(e) => setResumeText(e.target.value)}
-                placeholder="Or paste your complete resume text here (experience, skills, education, projects)..."
-                className="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-slate-200 text-xs font-mono leading-relaxed focus:outline-none focus:border-indigo-500 transition-colors"
+                placeholder="Or paste your resume text here (experience, skills, projects)..."
+                className="art-input w-full p-3 text-xs leading-relaxed"
               />
             </div>
 
-            {/* Step 2: Target Job Description */}
-            <div className="space-y-3">
+            {/* 2. Job Description Input Card */}
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center space-x-2">
-                  <div className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-[11px] font-mono">2</div>
-                  <Target className="w-4 h-4 text-cyan-400" />
-                  <span>Target Job Description (JD)</span>
+                <label className="text-xs font-bold text-[#293C3A] flex items-center space-x-1.5">
+                  <Target className="w-4 h-4 text-[#D8B35F]" />
+                  <span>Target Job Description</span>
                 </label>
-                <span className="text-[11px] text-slate-500">{jdText.length} characters</span>
+                {jdFileName ? (
+                  <span className="text-[11px] text-[#466E67] font-medium truncate max-w-[150px]">
+                    {jdFileName}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-[#6B7169]">{jdText.length} characters</span>
+                )}
               </div>
 
-              {/* Upload JD file button */}
-              <label className="flex items-center justify-center space-x-2 px-4 py-3 rounded-xl border border-dashed border-slate-700 hover:border-cyan-500 bg-slate-900/60 hover:bg-slate-900 cursor-pointer transition-colors text-xs text-slate-300">
-                <Upload className="w-4 h-4 text-cyan-400" />
-                <span>{jdFileName ? `Loaded: ${jdFileName}` : 'Upload JD (.txt, .md, .pdf)'}</span>
+              {/* Upload Button */}
+              <label className="flex items-center justify-center space-x-2 py-2 px-3 border border-dashed border-[#D9CFB9] hover:border-[#C95F48] bg-[#F5EBD6]/50 rounded-xl cursor-pointer text-xs font-semibold text-[#6B7169] hover:text-[#293C3A] transition-colors">
+                <Upload className="w-3.5 h-3.5 text-[#D8B35F]" />
+                <span>Upload job description (.txt, .md, .pdf)</span>
                 <input
                   type="file"
-                  accept=".pdf,.txt,.md,.doc,.docx"
+                  accept=".txt,.md,.pdf"
                   onChange={handleJdFileUpload}
                   className="hidden"
                 />
               </label>
 
               <textarea
-                rows={12}
-                required
+                rows={11}
                 value={jdText}
                 onChange={(e) => setJdText(e.target.value)}
-                placeholder="Paste the target job posting here (responsibilities, required qualifications, tech stack)..."
-                className="w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-slate-200 text-xs font-mono leading-relaxed focus:outline-none focus:border-cyan-500 transition-colors"
+                placeholder="Paste the target job description here (responsibilities, requirements, qualifications)..."
+                className="art-input w-full p-3 text-xs leading-relaxed"
               />
             </div>
           </div>
 
-          {/* Optional Role & Company overrides */}
-          <div className="pt-2 border-t border-slate-800/80">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-3">
-              Target Position Details (Optional — AI will auto-extract if left blank)
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Optional Role & Company Inputs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-[#D9CFB9]">
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7169] mb-1">
+                Target Role (optional)
+              </label>
               <input
                 type="text"
-                placeholder="Target Role (e.g. Senior Backend Engineer)"
                 value={targetRole}
                 onChange={(e) => setTargetRole(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                placeholder="e.g. Senior Backend Engineer"
+                className="art-input w-full px-3 py-2 text-xs"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7169] mb-1">
+                Target Company (optional)
+              </label>
               <input
                 type="text"
-                placeholder="Target Company (e.g. Stripe, Apex Fintech)"
                 value={targetCompany}
                 onChange={(e) => setTargetCompany(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                placeholder="e.g. Stripe, Acme Corp"
+                className="art-input w-full px-3 py-2 text-xs"
               />
             </div>
           </div>
 
-          {/* Submit Action */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center space-x-2 text-xs text-slate-400">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>All evaluations are 100% live and generated fresh from your actual inputs</span>
-            </div>
-
+          {/* Form Actions */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <span className="text-xs text-[#6B7169]">
+              Your resume and job details are kept private to your account.
+            </span>
             <button
               type="submit"
               disabled={isAnalyzing}
-              className="w-full sm:w-auto flex items-center justify-center space-x-2 px-8 py-3.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white shadow-xl shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
+              className="art-btn-primary w-full sm:w-auto px-6 py-2.5 flex items-center justify-center space-x-2 text-sm cursor-pointer disabled:opacity-60"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>Analyze & Generate Custom Pivot Coach</span>
+              <span>Start Assessment</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </form>

@@ -2,23 +2,20 @@ import React, { useState } from 'react';
 import {
   FileSearch,
   CheckCircle2,
-  XCircle,
   AlertTriangle,
-  Sparkles,
-  ArrowRight,
-  Upload,
-  RefreshCw,
-  FileText,
-  Target,
-  Layers,
   HelpCircle,
-  ChevronDown,
-  ChevronUp
+  ArrowRight,
+  Target,
+  FileText,
+  Building,
+  MapPin,
+  DollarSign
 } from 'lucide-react';
-import { CareerDiagnosisResult, SkillItem, StrengthLevel } from '../types';
+import type { CareerDiagnosisResult, SkillItem } from '../types';
+
 interface CareerDiagnosisProps {
   diagnosis: CareerDiagnosisResult;
-  onAnalyze: (resume: string, jd: string, manualRole?: string, manualCompany?: string) => Promise<void>;
+  onAnalyze: (resume: string, jd: string, targetRole?: string, targetCompany?: string) => Promise<void>;
   onNavigateToSprint: () => void;
   isAnalyzing: boolean;
 }
@@ -32,22 +29,12 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
   const [activeTab, setActiveTab] = useState<'results' | 'input'>('results');
   const [resumeText, setResumeText] = useState('');
   const [jdText, setJdText] = useState('');
-  const [targetRole, setTargetRole] = useState('');
-  const [targetCompany, setTargetCompany] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'match' | 'gap' | 'weak'>('all');
-  const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null);
 
-  const handleStartAnalysis = async () => {
-    if (!resumeText.trim() || !jdText.trim()) {
-      alert('Please provide both resume text and job description.');
-      return;
-    }
-    await onAnalyze(
-      resumeText,
-      jdText,
-      targetRole.trim() || undefined,
-      targetCompany.trim() || undefined
-    );
+  const handleReanalyze = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resumeText.trim() || !jdText.trim()) return;
+    await onAnalyze(resumeText, jdText);
     setActiveTab('results');
   };
 
@@ -63,355 +50,327 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
   });
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn">
       {/* Top Bar with Mode Toggle */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-[#D9CFB9]">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center space-x-2.5">
-            <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-              <FileSearch className="w-5 h-5" />
-            </div>
-            <span>AI Career Diagnosis & Forensic Gap Audit</span>
+          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#293C3A] flex items-center space-x-2">
+            <FileSearch className="w-6 h-6 text-[#C95F48]" />
+            <span>Skill Check</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Gemini-powered evaluation comparing candidate resume evidence against employer job requirements
+          <p className="text-xs text-[#6B7169] mt-0.5">
+            See how your skills match {diagnosis.targetRole} and what you need to learn.
           </p>
         </div>
 
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setActiveTab('results')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === 'results'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+                ? 'bg-[#C95F48] text-white'
+                : 'text-[#6B7169] hover:text-[#293C3A] bg-[#FFF7E8] border border-[#D9CFB9]'
             }`}
           >
             Audit Results
           </button>
           <button
             onClick={() => setActiveTab('input')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === 'input'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+                ? 'bg-[#C95F48] text-white'
+                : 'text-[#6B7169] hover:text-[#293C3A] bg-[#FFF7E8] border border-[#D9CFB9]'
             }`}
           >
-            Input / Edit Texts
+            Edit Resume &amp; Job
           </button>
         </div>
       </div>
 
-      {/* Input View */}
+      {/* Edit Resume & JD Tab */}
       {activeTab === 'input' && (
-        <div className="glass-panel p-6 rounded-3xl space-y-6">
-          <div className="pb-4 border-b border-slate-800">
-            <h2 className="text-base font-bold text-white">Upload or Paste Resume & Target Job Description</h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Input your current profile and target job description to run a live forensic gap audit.
+        <div className="art-card p-6 sm:p-8 space-y-6">
+          <div className="pb-3 border-b border-[#D9CFB9]">
+            <h2 className="font-editorial text-xl font-bold text-[#293C3A]">
+              Update Your Information
+            </h2>
+            <p className="text-xs text-[#6B7169] mt-0.5">
+              Paste updated resume or job details to rerun the skill match assessment.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Resume Input */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-1.5">
-                  <FileText className="w-4 h-4 text-indigo-400" />
-                  <span>Candidate Resume (Text or Markdown)</span>
+          <form onSubmit={handleReanalyze} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#293C3A] flex items-center space-x-1.5">
+                  <FileText className="w-4 h-4 text-[#C95F48]" />
+                  <span>Resume Text</span>
                 </label>
-                <span className="text-[11px] text-slate-500">{resumeText.length} chars</span>
+                <textarea
+                  rows={10}
+                  value={resumeText}
+                  onChange={(e) => setResumeText(e.target.value)}
+                  placeholder="Paste your updated resume text..."
+                  className="art-input w-full p-3 text-xs leading-relaxed"
+                />
               </div>
-              <textarea
-                rows={14}
-                value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
-                placeholder="Paste candidate resume text here..."
-                className="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs font-mono leading-relaxed focus:outline-none focus:border-indigo-500 transition-colors"
-              />
-            </div>
 
-            {/* Job Description Input */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-1.5">
-                  <Target className="w-4 h-4 text-cyan-400" />
-                  <span>Target Job Description (JD)</span>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#293C3A] flex items-center space-x-1.5">
+                  <Target className="w-4 h-4 text-[#D8B35F]" />
+                  <span>Target Job Description</span>
                 </label>
-                <span className="text-[11px] text-slate-500">{jdText.length} chars</span>
+                <textarea
+                  rows={10}
+                  value={jdText}
+                  onChange={(e) => setJdText(e.target.value)}
+                  placeholder="Paste the target job description..."
+                  className="art-input w-full p-3 text-xs leading-relaxed"
+                />
               </div>
-              <textarea
-                rows={14}
-                value={jdText}
-                onChange={(e) => setJdText(e.target.value)}
-                placeholder="Paste full job description requirements here..."
-                className="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs font-mono leading-relaxed focus:outline-none focus:border-cyan-500 transition-colors"
-              />
             </div>
-          </div>
 
-          {/* Optional Role & Company overrides */}
-          <div className="pt-2 border-t border-slate-800">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-              Target Position Details (Optional — AI will auto-extract if left blank)
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <input
-                type="text"
-                placeholder="Target Role (e.g. Senior Java Backend Engineer)"
-                value={targetRole}
-                onChange={(e) => setTargetRole(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-              />
-              <input
-                type="text"
-                placeholder="Target Company (e.g. GoKwik, Stripe, Apex)"
-                value={targetCompany}
-                onChange={(e) => setTargetCompany(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-              />
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={isAnalyzing || !resumeText.trim() || !jdText.trim()}
+                className="art-btn-primary px-6 py-2.5 text-xs font-bold cursor-pointer disabled:opacity-50"
+              >
+                {isAnalyzing ? 'Updating Assessment...' : 'Rerun Assessment'}
+              </button>
             </div>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button
-              onClick={handleStartAnalysis}
-              disabled={isAnalyzing}
-              className="flex items-center space-x-2 px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white shadow-xl shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
-            >
-              {isAnalyzing ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  <span>Running Forensic Gemini Audit...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-white" />
-                  <span>Run Forensic AI Diagnosis</span>
-                </>
-              )}
-            </button>
-          </div>
+          </form>
         </div>
       )}
 
       {/* Results View */}
       {activeTab === 'results' && (
         <div className="space-y-6">
-          {/* Header Summary Card */}
-          <div className="glass-panel p-6 sm:p-8 rounded-3xl relative overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
-              {/* Fit Dial & Breakdown */}
-              <div className="flex items-center space-x-5 lg:border-r lg:border-slate-800 lg:pr-6">
-                <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="text-slate-800"
-                      strokeWidth="3.5"
+          {/* Top Target Overview Card */}
+          <div className="art-card p-6 sm:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              {/* Fit Dial (4 cols) */}
+              <div className="lg:col-span-4 flex flex-col items-center justify-center p-4 rounded-2xl bg-[#E8EBDD]/60 border border-[#D9CFB9]">
+                <div className="relative flex items-center justify-center w-32 h-32">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      className="text-[#D9CFB9]"
+                      strokeWidth="8"
                       stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="transparent"
                     />
-                    <path
-                      className="text-indigo-500"
-                      strokeDasharray={`${diagnosis.roleFitScore}, 100`}
-                      strokeWidth="3.5"
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      className="text-[#C95F48]"
+                      strokeWidth="8"
+                      strokeDasharray={`${diagnosis.roleFitScore * 2.51} 251.2`}
                       strokeLinecap="round"
                       stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="transparent"
                     />
                   </svg>
                   <div className="absolute flex flex-col items-center">
-                    <span className="text-2xl font-extrabold text-white">{diagnosis.roleFitScore}%</span>
-                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">Fit Index</span>
+                    <span className="font-editorial text-3xl font-bold text-[#293C3A]">
+                      {diagnosis.roleFitScore}%
+                    </span>
+                    <span className="text-[10px] uppercase font-semibold text-[#6B7169]">
+                      Match Score
+                    </span>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <div className="text-xs text-slate-400">Target Alignment:</div>
-                  <div className="text-sm font-bold text-white">{diagnosis.targetRole}</div>
-                  <div className="text-xs text-cyan-400 font-medium">@ {diagnosis.targetCompany}</div>
-                  <div className="flex items-center space-x-2 text-[11px] pt-1">
-                    <span className="text-emerald-400 font-semibold">{diagnosis.matchPercentage}% Match</span>
-                    <span className="text-slate-600">•</span>
-                    <span className="text-amber-400 font-semibold">{diagnosis.gapPercentage}% Gap</span>
-                  </div>
-                  {(diagnosis.location || diagnosis.salary) && (
-                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] pt-1">
-                      {diagnosis.location && (
-                        <span className="px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-300 font-medium">
-                          📍 {diagnosis.location}
-                        </span>
-                      )}
-                      {diagnosis.salary && (
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 font-semibold">
-                          💰 {diagnosis.salary}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                <div className="mt-3 flex items-center gap-3 text-xs text-[#6B7169]">
+                  <span>{diagnosis.matchPercentage}% Matched</span>
+                  <span>•</span>
+                  <span>{diagnosis.gapPercentage}% To Learn</span>
                 </div>
               </div>
 
-              {/* Parity & Executive Summary */}
-              <div className="lg:col-span-2 space-y-3">
-                <div className="flex items-center space-x-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Executive Forensic Summary</span>
+              {/* Target Details & Summary (8 cols) */}
+              <div className="lg:col-span-8 space-y-3">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[#C95F48]">
+                    Target Position
+                  </span>
+                  <h2 className="font-editorial text-2xl font-bold text-[#293C3A]">
+                    {diagnosis.targetRole}
+                  </h2>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-[#6B7169]">
+                  {diagnosis.targetCompany && (
+                    <span className="flex items-center space-x-1">
+                      <Building className="w-3.5 h-3.5 text-[#466E67]" />
+                      <span>{diagnosis.targetCompany}</span>
+                    </span>
+                  )}
+                  {diagnosis.location && (
+                    <span className="flex items-center space-x-1">
+                      <MapPin className="w-3.5 h-3.5 text-[#D8B35F]" />
+                      <span>{diagnosis.location}</span>
+                    </span>
+                  )}
+                  {diagnosis.salary && (
+                    <span className="flex items-center space-x-1">
+                      <DollarSign className="w-3.5 h-3.5 text-[#C95F48]" />
+                      <span>{diagnosis.salary}</span>
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-[#293C3A] leading-relaxed pt-1">
                   {diagnosis.summary}
                 </p>
-                <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300">
-                  <strong className="text-amber-300">Evidence Audit Verdict: </strong>
-                  {diagnosis.parityExplanation}
-                </div>
+
+                {diagnosis.parityExplanation && (
+                  <div className="p-3 rounded-xl bg-[#E8EBDD] text-xs text-[#38564F] leading-relaxed">
+                    <strong>Summary:</strong> {diagnosis.parityExplanation}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Interactive Filter Tabs for Skills Matrix */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-            <div className="flex items-center space-x-2 text-xs">
+          {/* Filter Pills & Action */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setFilterCategory('all')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   filterCategory === 'all'
-                    ? 'bg-slate-800 text-white border border-slate-700'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-[#C95F48] text-white'
+                    : 'bg-[#FFF7E8] text-[#6B7169] hover:text-[#293C3A] border border-[#D9CFB9]'
                 }`}
               >
                 All Skills ({allSkills.length})
               </button>
               <button
                 onClick={() => setFilterCategory('match')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center space-x-1 ${
                   filterCategory === 'match'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'text-slate-400 hover:text-emerald-300'
+                    ? 'bg-[#466E67] text-white'
+                    : 'bg-[#FFF7E8] text-[#466E67] hover:bg-[#E8EBDD] border border-[#D9CFB9]'
                 }`}
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Verified Matches ({diagnosis.matchedSkills.length})</span>
               </button>
               <button
                 onClick={() => setFilterCategory('gap')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center space-x-1 ${
                   filterCategory === 'gap'
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                    : 'text-slate-400 hover:text-rose-300'
+                    ? 'bg-[#C95F48] text-white'
+                    : 'bg-[#FFF7E8] text-[#C95F48] hover:bg-[#FAECE8] border border-[#D9CFB9]'
                 }`}
               >
-                <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                <span>Critical Gaps ({diagnosis.gapSkills.length})</span>
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Skills to Learn ({diagnosis.gapSkills.length})</span>
               </button>
-              <button
-                onClick={() => setFilterCategory('weak')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                  filterCategory === 'weak'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : 'text-slate-400 hover:text-amber-300'
-                }`}
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                <span>Weak Evidence ({diagnosis.weakEvidenceSkills.length})</span>
-              </button>
+              {diagnosis.weakEvidenceSkills.length > 0 && (
+                <button
+                  onClick={() => setFilterCategory('weak')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center space-x-1 ${
+                    filterCategory === 'weak'
+                      ? 'bg-[#D8B35F] text-white'
+                      : 'bg-[#FFF7E8] text-[#7A5B1D] hover:bg-[#FBF4E4] border border-[#D9CFB9]'
+                  }`}
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  <span>Weak Evidence ({diagnosis.weakEvidenceSkills.length})</span>
+                </button>
+              )}
             </div>
 
             <button
               onClick={onNavigateToSprint}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+              className="art-btn-primary px-4 py-2 text-xs font-bold flex items-center space-x-1.5 cursor-pointer self-start sm:self-auto"
             >
-              <span>View Adaptive Sprint Plan</span>
+              <span>View Learning Plan</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* Forensic Skills Cards */}
+          {/* Skills Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredSkills.map((item) => {
-              const isExpanded = expandedSkillId === item.id;
               const isMatch = item.type === 'match';
               const isGap = item.type === 'gap';
-              const isWeak = item.type === 'weak';
 
               return (
                 <div
                   key={item.id}
-                  className={`glass-panel p-5 rounded-2xl transition-all border ${
+                  className={`art-card p-5 space-y-3 ${
                     isMatch
-                      ? 'border-emerald-500/20 hover:border-emerald-500/40'
+                      ? 'border-[#C5D5BE]'
                       : isGap
-                      ? 'border-rose-500/30 hover:border-rose-500/50'
-                      : 'border-amber-500/30 hover:border-amber-500/50'
+                      ? 'border-[#E58B70]/70'
+                      : 'border-[#D9CFB9]'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start space-x-3">
-                      <div
-                        className={`p-2 rounded-xl shrink-0 ${
-                          isMatch
-                            ? 'bg-emerald-500/10 text-emerald-400'
-                            : isGap
-                            ? 'bg-rose-500/10 text-rose-400'
-                            : 'bg-amber-500/10 text-amber-400'
-                        }`}
-                      >
-                        {isMatch && <CheckCircle2 className="w-4 h-4" />}
-                        {isGap && <XCircle className="w-4 h-4" />}
-                        {isWeak && <AlertTriangle className="w-4 h-4" />}
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-sm font-bold text-white">{item.skill}</h3>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              isMatch
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : isGap
-                                ? 'bg-rose-500/20 text-rose-300'
-                                : 'bg-amber-500/20 text-amber-300'
-                            }`}
-                          >
-                            {isMatch ? 'Match' : isGap ? 'Critical Gap' : 'Weak Evidence'}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400">{item.category} • {item.importance}</p>
-                      </div>
+                  {/* Skill Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      {isMatch ? (
+                        <CheckCircle2 className="w-4 h-4 text-[#466E67] shrink-0" />
+                      ) : isGap ? (
+                        <AlertTriangle className="w-4 h-4 text-[#C95F48] shrink-0" />
+                      ) : (
+                        <HelpCircle className="w-4 h-4 text-[#D8B35F] shrink-0" />
+                      )}
+                      <h3 className="text-sm font-bold text-[#293C3A]">{item.skill}</h3>
                     </div>
 
-                    <button
-                      onClick={() => setExpandedSkillId(isExpanded ? null : item.id)}
-                      className="p-1 rounded text-slate-500 hover:text-slate-300"
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                        isMatch
+                          ? 'bg-[#E8EBDD] text-[#38564F]'
+                          : isGap
+                          ? 'bg-[#FAECE8] text-[#C95F48]'
+                          : 'bg-[#FBF4E4] text-[#7A5B1D]'
+                      }`}
                     >
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
+                      {isMatch ? 'Match' : isGap ? 'Needs Practice' : 'Weak Evidence'}
+                    </span>
                   </div>
 
-                  {/* Evidence vs Requirement */}
-                  <div className="mt-4 space-y-2.5 text-xs">
-                    <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-                        Job Description Requirement:
-                      </div>
-                      <p className="text-slate-300 leading-snug">{item.jdRequirement}</p>
+                  {/* Category & Importance */}
+                  <div className="text-[11px] text-[#6B7169] flex items-center space-x-2">
+                    <span>{item.category}</span>
+                    {item.importance && (
+                      <>
+                        <span>•</span>
+                        <span>{item.importance}</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Requirements & Evidence */}
+                  <div className="space-y-2 text-xs">
+                    <div className="p-2.5 rounded-lg bg-[#F5EBD6]/60 border border-[#D9CFB9]">
+                      <span className="text-[10px] font-semibold uppercase text-[#6B7169] block mb-0.5">
+                        Job Requirement:
+                      </span>
+                      <p className="text-[#293C3A]">{item.jdRequirement}</p>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-                        Candidate Resume Evidence:
-                      </div>
-                      <p className="text-slate-300 italic leading-snug">"{item.resumeEvidence}"</p>
+                    <div className="p-2.5 rounded-lg bg-[#FFF7E8] border border-[#D9CFB9]">
+                      <span className="text-[10px] font-semibold uppercase text-[#6B7169] block mb-0.5">
+                        Resume Evidence:
+                      </span>
+                      <p className="text-[#293C3A]">{item.resumeEvidence || 'No direct evidence found.'}</p>
                     </div>
 
                     {item.actionItem && (
-                      <div className="p-2.5 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-indigo-200">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-0.5">
-                          Action to Bridge:
-                        </div>
-                        <p className="leading-snug">{item.actionItem}</p>
+                      <div className="p-2.5 rounded-lg bg-[#FAECE8]/70 border border-[#E58B70]/40">
+                        <span className="text-[10px] font-semibold uppercase text-[#C95F48] block mb-0.5">
+                          How to Improve:
+                        </span>
+                        <p className="text-[#293C3A]">{item.actionItem}</p>
                       </div>
                     )}
                   </div>
@@ -421,43 +380,37 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
           </div>
 
           {/* Interview Focus Areas */}
-          <div className="glass-panel p-6 rounded-3xl space-y-4">
-            <div className="flex items-center space-x-2.5">
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-                <HelpCircle className="w-5 h-5" />
-              </div>
+          {diagnosis.interviewFocusAreas && diagnosis.interviewFocusAreas.length > 0 && (
+            <div className="art-card p-6 space-y-4">
               <div>
-                <h3 className="text-base font-bold text-white">Critical Interview Probing Areas</h3>
-                <p className="text-xs text-slate-400">
-                  Forensic audit indicates hiring managers will probe deeply into these 3 weak zones
+                <h3 className="font-editorial text-lg font-bold text-[#293C3A]">
+                  Interview Focus Areas
+                </h3>
+                <p className="text-xs text-[#6B7169]">
+                  Expect interviewers to ask deeply about these topics
                 </p>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-              {diagnosis.interviewFocusAreas.map((area, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white">{area.category}</span>
-                    <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                        area.priority === 'Critical'
-                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      }`}
-                    >
-                      {area.priority}
-                    </span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {diagnosis.interviewFocusAreas.map((area, idx) => (
+                  <div key={idx} className="p-4 rounded-xl bg-[#E8EBDD]/50 border border-[#D9CFB9] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-[#293C3A]">{area.category}</h4>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#FAECE8] text-[#C95F48]">
+                        {area.priority}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#6B7169] leading-relaxed">{area.description}</p>
+                    {area.sampleQuestions && area.sampleQuestions.length > 0 && (
+                      <div className="pt-1 text-[11px] text-[#293C3A] italic border-t border-[#D9CFB9]">
+                        &ldquo;{area.sampleQuestions[0]}&rdquo;
+                      </div>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{area.description}</p>
-                  <div className="space-y-1 pt-1 border-t border-slate-800">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Sample Probe:</span>
-                    <p className="text-xs text-indigo-300 italic">"{area.sampleQuestions[0]}"</p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

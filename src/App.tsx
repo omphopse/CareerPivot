@@ -7,6 +7,7 @@ import { InterviewCoach } from './components/InterviewCoach';
 import { ApplicationTracker } from './components/ApplicationTracker';
 import { CompulsoryOnboarding } from './components/CompulsoryOnboarding';
 import { AuthPortal } from './components/AuthPortal';
+import { HomePage } from './components/HomePage';
 import type {
   CareerDiagnosisResult,
   SprintPlan,
@@ -20,10 +21,12 @@ import { storageService } from './services/supabase';
 import { aiService } from './services/gemini';
 import { authService } from './services/auth';
 import confetti from 'canvas-confetti';
-import { Zap, Compass } from 'lucide-react';
+import { Zap, ShieldCheck } from 'lucide-react';
+import { PicassoCareerCompass } from './components/ArtIllustrations';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'home' | 'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker'>('dashboard');
+  const [showAuthPortal, setShowAuthPortal] = useState<boolean>(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzingStep, setAnalyzingStep] = useState<string>('');
   const [evaluatingQuestionIds, setEvaluatingQuestionIds] = useState<string[]>([]);
@@ -137,6 +140,8 @@ export function App() {
       setApplications([]);
       setEvaluationsByQuestionId({});
       setAnswersByQuestionId({});
+      setShowAuthPortal(false);
+      setActiveTab('dashboard');
       showToast('You have been logged out.');
     }
   };
@@ -449,21 +454,37 @@ export function App() {
   // Gate 1: Session Verification Splash Screen
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300 space-y-4 font-sans selection:bg-indigo-500 selection:text-white">
-        <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center shadow-2xl">
-          <Compass className="w-8 h-8 text-indigo-400 animate-spin" />
+      <div className="min-h-screen bg-[#F5EBD6] flex flex-col items-center justify-center text-[#293C3A] space-y-4 font-sans">
+        <div className="w-14 h-14 rounded-2xl bg-[#FFF7E8] border border-[#D9CFB9] flex items-center justify-center shadow-xs">
+          <PicassoCareerCompass size={36} />
         </div>
         <div className="text-center space-y-1">
-          <h2 className="text-sm font-bold text-white tracking-wider uppercase">Career Pilot</h2>
-          <p className="text-xs text-slate-400">Verifying secure authenticated session...</p>
+          <h2 className="font-editorial text-base font-bold text-[#293C3A]">Career Pivot</h2>
+          <p className="text-xs text-[#6B7169]">Loading your career workspace...</p>
         </div>
       </div>
     );
   }
 
-  // Gate 2: Compulsory Authentication Barrier (User MUST log in with Email OTP before accessing any feature)
+  // Gate 2: Unauthenticated State — Show explanatory Home Page, with sign-in portal access
   if (!currentUser) {
-    return <AuthPortal onLoginSuccess={handleLoginSuccess} />;
+    if (showAuthPortal) {
+      return (
+        <AuthPortal
+          onLoginSuccess={(session) => {
+            setShowAuthPortal(false);
+            handleLoginSuccess(session);
+          }}
+          onBackToHome={() => setShowAuthPortal(false)}
+        />
+      );
+    }
+    return (
+      <HomePage
+        onGetStarted={() => setShowAuthPortal(true)}
+        currentUser={null}
+      />
+    );
   }
 
   // Gate 3: Compulsory Onboarding Gate (If no active diagnosis exists, show intake screen)
@@ -480,12 +501,12 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-[#F5EBD6] text-[#293C3A] flex flex-col font-sans selection:bg-[#C95F48] selection:text-white">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 animate-bounce duration-300">
-          <div className="flex items-center space-x-2.5 px-4 py-3 rounded-2xl bg-indigo-950/90 border border-indigo-500/50 text-white shadow-2xl backdrop-blur-md text-xs font-semibold">
-            <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+          <div className="flex items-center space-x-2.5 px-4 py-3 rounded-xl bg-[#FFF7E8] border border-[#D9CFB9] text-[#293C3A] shadow-lg text-xs font-semibold">
+            <Zap className="w-4 h-4 text-[#C95F48] shrink-0" />
             <span>{toastMessage}</span>
           </div>
         </div>
@@ -502,73 +523,80 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'dashboard' && (
-          <DashboardOverview
-            diagnosis={diagnosis}
-            sprintPlan={sprintPlan}
-            applications={applications}
-            onNavigate={(tab) => setActiveTab(tab)}
-            onStartNewAnalysis={handleStartNewAnalysis}
-          />
-        )}
+      {activeTab === 'home' ? (
+        <HomePage
+          onGetStarted={() => setActiveTab('dashboard')}
+          currentUser={currentUser}
+          onNavigateToDashboard={() => setActiveTab('dashboard')}
+          hideHeader={true}
+          hideFooter={true}
+        />
+      ) : (
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {activeTab === 'dashboard' && (
+            <DashboardOverview
+              diagnosis={diagnosis}
+              sprintPlan={sprintPlan}
+              applications={applications}
+              onNavigate={(tab) => setActiveTab(tab)}
+              onStartNewAnalysis={handleStartNewAnalysis}
+            />
+          )}
 
-        {activeTab === 'diagnosis' && (
-          <CareerDiagnosis
-            diagnosis={diagnosis}
-            onAnalyze={async (r, j, mr, mc) => handleStartAnalysis(r, j, mr, mc)}
-            onNavigateToSprint={() => setActiveTab('sprint')}
-            isAnalyzing={isAnalyzing}
-          />
-        )}
+          {activeTab === 'diagnosis' && (
+            <CareerDiagnosis
+              diagnosis={diagnosis}
+              onAnalyze={async (r, j, mr, mc) => handleStartAnalysis(r, j, mr, mc)}
+              onNavigateToSprint={() => setActiveTab('sprint')}
+              isAnalyzing={isAnalyzing}
+            />
+          )}
 
-        {activeTab === 'sprint' && (
-          <SprintPlanView
-            sprintPlan={sprintPlan}
-            onUpdatePlan={handleUpdateSprintPlan}
-            onNavigateToInterview={() => setActiveTab('interview')}
-          />
-        )}
+          {activeTab === 'sprint' && (
+            <SprintPlanView
+              sprintPlan={sprintPlan}
+              onUpdatePlan={handleUpdateSprintPlan}
+              onNavigateToInterview={() => setActiveTab('interview')}
+            />
+          )}
 
-        {activeTab === 'interview' && (
-          <InterviewCoach
-            sprintPlan={sprintPlan}
-            questions={questions}
-            answersByQuestionId={answersByQuestionId}
-            evaluationsByQuestionId={evaluationsByQuestionId}
-            evaluatingQuestionIds={evaluatingQuestionIds}
-            onUpdateAnswer={handleUpdateAnswer}
-            onEvaluateAnswer={handleEvaluateAnswer}
-            onRecalibrateSprintPlan={handleRecalibrateSprintPlan}
-            onNavigateToSprint={() => setActiveTab('sprint')}
-            onUpdateQuestion={handleUpdateQuestion}
-            onUpdateAllQuestions={handleUpdateAllQuestions}
-          />
-        )}
+          {activeTab === 'interview' && (
+            <InterviewCoach
+              sprintPlan={sprintPlan}
+              questions={questions}
+              answersByQuestionId={answersByQuestionId}
+              evaluationsByQuestionId={evaluationsByQuestionId}
+              evaluatingQuestionIds={evaluatingQuestionIds}
+              onUpdateAnswer={handleUpdateAnswer}
+              onEvaluateAnswer={handleEvaluateAnswer}
+              onRecalibrateSprintPlan={handleRecalibrateSprintPlan}
+              onNavigateToSprint={() => setActiveTab('sprint')}
+              onUpdateQuestion={handleUpdateQuestion}
+              onUpdateAllQuestions={handleUpdateAllQuestions}
+            />
+          )}
 
-        {activeTab === 'tracker' && (
-          <ApplicationTracker
-            applications={applications}
-            onUpdateApplications={handleUpdateApplications}
-            onDeleteApplication={handleDeleteApplication}
-          />
-        )}
-      </main>
+          {activeTab === 'tracker' && (
+            <ApplicationTracker
+              applications={applications}
+              onUpdateApplications={handleUpdateApplications}
+              onDeleteApplication={handleDeleteApplication}
+            />
+          )}
+        </main>
+      )}
 
-      {/* Footer */}
-      <footer className="w-full border-t border-slate-800/80 bg-slate-950/90 py-6 text-xs text-slate-400">
+      {/* Single Unified Footer */}
+      <footer className="w-full border-t border-[#D9CFB9] bg-[#FFF7E8] py-6 text-xs text-[#6B7169]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-white">Career Pilot</span>
+            <span className="font-editorial text-sm font-bold text-[#293C3A]">Career Pivot</span>
             <span>•</span>
-            <span>Live AI Career Pivot Coach</span>
+            <span>Your Personal Career Coach</span>
           </div>
-          <div className="flex items-center space-x-4 text-slate-400">
-            <span>Google Gemini 3.8 Flash</span>
-            <span>•</span>
-            <span>Supabase PostgreSQL</span>
-            <span>•</span>
-            <span>React + Vite + Tailwind</span>
+          <div className="text-[11px] text-[#6B7169] flex items-center space-x-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#466E67]" />
+            <span>All career data and interview notes are saved locally and private to your account.</span>
           </div>
         </div>
       </footer>

@@ -1,4 +1,4 @@
--- Career Pilot - AI Career Pivot Coach
+-- Career Pivot - AI Career Pivot Coach
 -- Supabase PostgreSQL Database Schema
 -- Provides tables for Profiles, Analyses, Sprint Plans, Mock Interviews, and Job Applications
 

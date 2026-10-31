@@ -3,24 +3,20 @@ import {
   CalendarCheck,
   CheckCircle2,
   Circle,
-  ExternalLink,
-  Award,
-  HelpCircle,
-  Zap,
   Clock,
-  Sparkles,
-  BookOpen,
-  Check,
   ArrowRight,
-  TrendingUp,
-  Info
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  HelpCircle,
+  Layers
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import type { SprintPlan, DailyQuiz } from '../types';
+import confetti from 'canvas-confetti';
 
 interface SprintPlanViewProps {
   sprintPlan: SprintPlan;
-  onUpdatePlan: (updatedPlan: SprintPlan) => void;
+  onUpdatePlan: (updated: SprintPlan) => void;
   onNavigateToInterview: () => void;
 }
 
@@ -34,18 +30,28 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
   const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
 
   const totalDays = sprintPlan.days.length;
-  const activeDay = sprintPlan.days.find((d) => d.dayNumber === selectedDayNum) || sprintPlan.days[0];
+  const currentDay = sprintPlan.days.find((d) => d.dayNumber === selectedDayNum) || sprintPlan.days[0];
 
-  // Toggle task completion
-  const handleToggleTask = (taskId: string) => {
+  // Progress metrics
+  const totalTasks = sprintPlan.days.reduce((acc, d) => acc + d.tasks.length, 0);
+  const completedTasks = sprintPlan.days.reduce(
+    (acc, d) => acc + d.tasks.filter((t) => t.completed).length,
+    0
+  );
+  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const completedDaysCount = sprintPlan.days.filter((d) => d.completed).length;
+
+  // Toggle Task Completion
+  const handleToggleTask = (dayNumber: number, taskId: string) => {
     const updatedDays = sprintPlan.days.map((day) => {
-      if (day.dayNumber === selectedDayNum) {
+      if (day.dayNumber === dayNumber) {
+        let nextCompleted = false;
         const updatedTasks = day.tasks.map((t) => {
           if (t.id === taskId) {
-            const nextCompleted = !t.completed;
+            nextCompleted = !t.completed;
             if (nextCompleted) {
               confetti({
-                particleCount: 40,
+                particleCount: 50,
                 spread: 60,
                 origin: { y: 0.7 }
               });
@@ -65,12 +71,10 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
       return day;
     });
 
-    const newPlan: SprintPlan = {
+    onUpdatePlan({
       ...sprintPlan,
       days: updatedDays
-    };
-
-    onUpdatePlan(newPlan);
+    });
   };
 
   // Handle Quiz Submission
@@ -81,8 +85,8 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
     const isCorrect = quizSelectedOption === quiz.correctIndex;
     if (isCorrect) {
       confetti({
-        particleCount: 100,
-        spread: 80,
+        particleCount: 80,
+        spread: 70,
         origin: { y: 0.6 }
       });
 
@@ -91,7 +95,7 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
       const keys = Object.keys(updatedMastery);
       if (keys.length > 0) {
         const targetKey = keys[Math.min(selectedDayNum - 1, keys.length - 1)];
-        updatedMastery[targetKey] = Math.min(100, (updatedMastery[targetKey] || 40) + 12);
+        updatedMastery[targetKey] = Math.min(100, (updatedMastery[targetKey] || 40) + 10);
       }
 
       onUpdatePlan({
@@ -101,339 +105,315 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
     }
   };
 
+  const handlePrevDay = () => {
+    if (selectedDayNum > 1) {
+      setSelectedDayNum(selectedDayNum - 1);
+      setQuizSelectedOption(null);
+      setQuizSubmitted(false);
+    }
+  };
+
+  const handleNextDay = () => {
+    if (selectedDayNum < totalDays) {
+      setSelectedDayNum(selectedDayNum + 1);
+      setQuizSelectedOption(null);
+      setQuizSubmitted(false);
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Page Title & Stats Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800">
+    <div className="space-y-6 animate-fadeIn">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#D9CFB9]">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center space-x-2.5">
-            <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
-              <CalendarCheck className="w-5 h-5" />
-            </div>
-            <span>Adaptive Sprint Plan ({totalDays} Days) & Skill Mastery</span>
+          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#293C3A] flex items-center space-x-2">
+            <CalendarCheck className="w-6 h-6 text-[#C95F48]" />
+            <span>Your Career Plan</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Dynamically calibrated timeline for {sprintPlan.targetRole} based on candidate gap depth
+          <p className="text-xs text-[#6B7169] mt-0.5">
+            A {totalDays}-day plan tailored to help you prepare for {sprintPlan.targetRole}.
           </p>
         </div>
 
         <button
           onClick={onNavigateToInterview}
-          className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all cursor-pointer self-start sm:self-auto"
+          className="art-btn-primary px-4 py-2 text-xs font-bold flex items-center space-x-1.5 cursor-pointer self-start sm:self-auto"
         >
-          <span>AI Mock Interview Round</span>
+          <span>Practice Interview</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Duration Rationale Banner */}
-      {sprintPlan.durationRationale && (
-        <div className="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 flex items-start space-x-3.5">
-          <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 shrink-0">
-            <Info className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">
-              Calibrated Sprint Duration: {totalDays} Days
-            </span>
-            <p className="text-xs text-slate-200 leading-relaxed">{sprintPlan.durationRationale}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Adaptive Recalibration Alert Banner (if any) */}
-      {sprintPlan.adaptiveLogs.length > 0 && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-indigo-950/40 border border-amber-500/30 flex items-start space-x-3.5">
-          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 shrink-0">
-            <Zap className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                Adaptive Engine Active
-              </span>
-              <span className="text-[11px] text-amber-400/80">• {sprintPlan.adaptiveLogs[0].timestamp}</span>
+      {/* Progress Summary Card */}
+      <div className="art-card p-5 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-3">
+          <div>
+            <span className="text-xs font-semibold text-[#6B7169]">Overall Plan Progress</span>
+            <div className="font-editorial text-2xl font-bold text-[#293C3A]">
+              {progressPercent}% Complete
             </div>
-            <p className="text-xs text-slate-200">{sprintPlan.adaptiveLogs[0].reason}</p>
-            <p className="text-xs text-slate-400 italic">{sprintPlan.adaptiveLogs[0].changeSummary}</p>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-[#6B7169]">
+            <span>{completedTasks} of {totalTasks} tasks done</span>
+            <span>•</span>
+            <span>{completedDaysCount} of {totalDays} days finished</span>
           </div>
         </div>
-      )}
 
-      {/* Variable-Day Timeline Pill Selector */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-          <span>Sprint Timeline: Select Day</span>
-          <span>{sprintPlan.days.filter((d) => d.completed).length} of {totalDays} Days Completed</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2.5">
-          {sprintPlan.days.map((day) => {
-            const isSelected = day.dayNumber === selectedDayNum;
-            const isDone = day.completed;
-            const isRecalibrated = day.theme.includes('RECALIBRATED') || day.isNewlyAdded;
-
-            return (
-              <button
-                key={day.dayNumber}
-                onClick={() => {
-                  setSelectedDayNum(day.dayNumber);
-                  setQuizSelectedOption(null);
-                  setQuizSubmitted(false);
-                }}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
-                  isSelected
-                    ? 'bg-indigo-950/80 border-indigo-500 shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-500/50'
-                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
-                }`}
-              >
-                {isRecalibrated && (
-                  <div
-                    className="absolute top-0 right-0 px-1.5 py-0.5 rounded-bl text-[8px] font-bold bg-amber-400 text-slate-950"
-                    title="Adaptive Day Added by AI Coach"
-                  >
-                    AI+
-                  </div>
-                )}
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className={`font-bold ${isSelected ? 'text-indigo-300' : 'text-slate-400'}`}>
-                    Day {day.dayNumber}
-                  </span>
-                  {isDone ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  ) : (
-                    <Circle className="w-3.5 h-3.5 text-slate-600" />
-                  )}
-                </div>
-                <p className="text-[11px] font-semibold text-white line-clamp-2 leading-snug">
-                  {day.theme.replace('⚡ EXTENDED SPRINT: ', '').replace('⚡ RECALIBRATED: ', '')}
-                </p>
-                <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between">
-                  <span>{day.tasks.filter((t) => t.completed).length}/{day.tasks.length} tasks</span>
-                </div>
-              </button>
-            );
-          })}
+        <div className="w-full bg-[#E8EBDD] rounded-full h-2.5 overflow-hidden">
+          <div
+            className="bg-[#C95F48] h-2.5 rounded-full transition-all duration-500"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
       </div>
 
-      {/* Selected Day View */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Day Theme & Tasks Checklist */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="glass-panel p-6 rounded-3xl space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 border border-indigo-500/30 text-indigo-300">
-                  DAY {activeDay.dayNumber} OF {totalDays}
-                </span>
-                {activeDay.isNewlyAdded && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300 animate-pulse">
-                    ⚡ Extended Day from Mock Interview
-                  </span>
-                )}
-              </div>
-              <span className="text-xs text-slate-400">
-                {activeDay.tasks.filter((t) => t.completed).length} of {activeDay.tasks.length} tasks completed
-              </span>
-            </div>
+      {/* Day Selector Navigation */}
+      <div className="art-card p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={handlePrevDay}
+            disabled={selectedDayNum === 1}
+            className="p-1.5 rounded-lg text-[#6B7169] hover:text-[#293C3A] hover:bg-[#E8EBDD] disabled:opacity-30 cursor-pointer"
+            aria-label="Previous day"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
 
-            <h2 className="text-xl font-bold text-white flex items-center space-x-2">
-              <span>{activeDay.theme}</span>
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
-              <strong className="text-cyan-400">Sprint Goal: </strong>
-              {activeDay.goal}
-            </p>
+          {/* Horizontal Day Buttons */}
+          <div className="flex items-center gap-2 overflow-x-auto py-1 px-1">
+            {sprintPlan.days.map((day) => {
+              const isSelected = day.dayNumber === selectedDayNum;
+              const isDone = day.completed;
+
+              return (
+                <button
+                  key={day.dayNumber}
+                  onClick={() => {
+                    setSelectedDayNum(day.dayNumber);
+                    setQuizSelectedOption(null);
+                    setQuizSubmitted(false);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 flex items-center space-x-1.5 transition-colors cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#C95F48] text-white shadow-xs'
+                      : isDone
+                      ? 'bg-[#E8EBDD] text-[#38564F] hover:bg-[#D9CFB9]'
+                      : 'bg-[#FFF7E8] text-[#6B7169] hover:text-[#293C3A] border border-[#D9CFB9]'
+                  }`}
+                >
+                  {isDone && <CheckCircle2 className="w-3.5 h-3.5 text-[#466E67]" />}
+                  <span>Day {day.dayNumber}</span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Tasks List */}
+          <button
+            onClick={handleNextDay}
+            disabled={selectedDayNum === totalDays}
+            className="p-1.5 rounded-lg text-[#6B7169] hover:text-[#293C3A] hover:bg-[#E8EBDD] disabled:opacity-30 cursor-pointer"
+            aria-label="Next day"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Selected Day Focus Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Day Tasks List (7 cols) */}
+        <div className="lg:col-span-7 art-card p-6 space-y-5">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#C95F48]">
+              Day {currentDay.dayNumber} of {totalDays}
+            </span>
+            <h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#293C3A]">
+              {currentDay.theme}
+            </h2>
+            {currentDay.goal && (
+              <p className="text-xs text-[#6B7169] mt-1 leading-relaxed">
+                <strong className="text-[#293C3A]">Goal:</strong> {currentDay.goal}
+              </p>
+            )}
+          </div>
+
+          {/* Tasks Checklist */}
           <div className="space-y-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 px-1">
-              Deliverables & Action Items ({activeDay.tasks.length})
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#6B7169]">
+              Tasks to Complete ({currentDay.tasks.filter((t) => t.completed).length} / {currentDay.tasks.length})
             </h3>
 
-            {activeDay.tasks.map((task) => (
+            {currentDay.tasks.map((task) => (
               <div
                 key={task.id}
-                className={`glass-panel p-5 rounded-2xl border transition-all ${
+                className={`p-4 rounded-xl border transition-all ${
                   task.completed
-                    ? 'border-emerald-500/30 bg-emerald-950/10'
-                    : 'border-slate-800 hover:border-slate-700'
+                    ? 'bg-[#E8EBDD]/50 border-[#C5D5BE]'
+                    : 'bg-[#FFF7E8] border-[#D9CFB9]'
                 }`}
               >
-                <div className="flex items-start space-x-3.5">
+                {/* Top Row: Checkbox + Title + Duration */}
+                <div className="flex items-start justify-between gap-3">
                   <button
-                    onClick={() => handleToggleTask(task.id)}
-                    className="mt-1 text-slate-500 hover:text-emerald-400 transition-colors cursor-pointer shrink-0"
+                    onClick={() => handleToggleTask(currentDay.dayNumber, task.id)}
+                    className="flex items-start space-x-2.5 text-left cursor-pointer flex-1 group"
                   >
-                    {task.completed ? (
-                      <div className="w-5 h-5 rounded-md bg-emerald-500 text-slate-950 flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      </div>
-                    ) : (
-                      <div className="w-5 h-5 rounded-md border-2 border-slate-600 hover:border-emerald-400 transition-colors" />
-                    )}
+                    <div className="mt-0.5 shrink-0">
+                      {task.completed ? (
+                        <CheckCircle2 className="w-5 h-5 text-[#466E67]" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-[#D9CFB9] group-hover:text-[#C95F48]" />
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs font-bold leading-snug ${
+                        task.completed ? 'line-through text-[#6B7169]' : 'text-[#293C3A]'
+                      }`}
+                    >
+                      {task.title}
+                    </span>
                   </button>
 
-                  <div className="space-y-2 flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h4
-                        className={`text-sm font-bold ${
-                          task.completed ? 'text-slate-400 line-through' : 'text-white'
-                        }`}
+                  <span className="text-[11px] font-medium text-[#6B7169] flex items-center space-x-1 shrink-0 bg-[#F5EBD6] px-2 py-0.5 rounded-md border border-[#D9CFB9]/60">
+                    <Clock className="w-3 h-3 text-[#C95F48]" />
+                    <span>{task.duration}</span>
+                  </span>
+                </div>
+
+                {/* Body: Description & Deliverable (Indented to align under title) */}
+                <div className="pl-7 pt-1.5 space-y-2">
+                  <p className="text-[11px] text-[#6B7169] leading-relaxed">
+                    {task.description}
+                  </p>
+
+                  {task.deliverable && (
+                    <div className="text-[11px] text-[#293C3A] bg-[#F5EBD6] p-2.5 rounded-lg border border-[#D9CFB9]/60">
+                      <strong className="text-[#C95F48]">Deliverable:</strong> {task.deliverable}
+                    </div>
+                  )}
+
+                  {/* Resource Link (Full width dedicated row) */}
+                  {task.resource && (
+                    <div className="pt-1 flex items-center">
+                      <a
+                        href={task.resource.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center space-x-1.5 text-[11px] font-semibold text-[#466E67] hover:text-[#293C3A] hover:underline bg-[#E8EBDD]/60 hover:bg-[#E8EBDD] px-2.5 py-1 rounded-md border border-[#C5D5BE] transition-colors"
                       >
-                        {task.title}
-                      </h4>
-                      <div className="flex items-center space-x-2">
-                        <span className="flex items-center space-x-1 text-[11px] text-slate-400">
-                          <Clock className="w-3 h-3 text-cyan-400" />
-                          <span>{task.duration}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        <span className="truncate max-w-[220px] sm:max-w-md">
+                          {task.resource.title || 'Resource Guide'}
                         </span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700 uppercase">
-                          {task.type}
-                        </span>
-                      </div>
+                      </a>
                     </div>
-
-                    <p className="text-xs text-slate-300 leading-relaxed">{task.description}</p>
-
-                    {/* Deliverable Box */}
-                    <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs">
-                      <strong className="text-amber-300">Deliverable: </strong>
-                      <span className="text-slate-300">{task.deliverable}</span>
-                    </div>
-
-                    {/* Resource link */}
-                    {task.resource && (
-                      <div className="pt-1">
-                        <a
-                          href={task.resource.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center space-x-1 text-xs text-indigo-400 hover:text-indigo-300 hover:underline"
-                        >
-                          <BookOpen className="w-3 h-3" />
-                          <span>{task.resource.title}</span>
-                          <ExternalLink className="w-2.5 h-2.5" />
-                        </a>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Right 1 Col: Daily Conceptual Quiz & Mastery Widget */}
-        <div className="space-y-6">
-          {/* Daily Quiz Card */}
-          <div className="glass-panel p-6 rounded-3xl space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300">
-                <HelpCircle className="w-3.5 h-3.5" />
-                <span>DAY {activeDay.dayNumber} MINI-QUIZ</span>
-              </span>
-              <span className="text-xs text-slate-400">+12% Mastery</span>
-            </div>
-
-            <h3 className="text-sm font-bold text-white leading-snug">{activeDay.quiz.question}</h3>
-
-            {/* Quiz Options */}
-            <div className="space-y-2 pt-1">
-              {activeDay.quiz.options.map((option, idx) => {
-                const isSelected = quizSelectedOption === idx;
-                const isCorrect = idx === activeDay.quiz.correctIndex;
-
-                let optionStyles = 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-300';
-                if (quizSubmitted) {
-                  if (isCorrect) {
-                    optionStyles = 'bg-emerald-950/60 border-emerald-500 text-emerald-200';
-                  } else if (isSelected && !isCorrect) {
-                    optionStyles = 'bg-rose-950/60 border-rose-500 text-rose-200';
-                  }
-                } else if (isSelected) {
-                  optionStyles = 'bg-indigo-950 border-indigo-500 text-white';
-                }
-
-                return (
-                  <button
-                    key={idx}
-                    disabled={quizSubmitted}
-                    onClick={() => setQuizSelectedOption(idx)}
-                    className={`w-full p-3 rounded-xl border text-left text-xs transition-all flex items-start space-x-2.5 cursor-pointer ${optionStyles}`}
-                  >
-                    <span className="font-mono text-slate-500 text-[11px] mt-0.5">
-                      {String.fromCharCode(65 + idx)}.
-                    </span>
-                    <span className="leading-snug">{option}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Submit or Explanation */}
-            {!quizSubmitted ? (
-              <button
-                onClick={() => handleQuizSubmit(activeDay.quiz)}
-                disabled={quizSelectedOption === null}
-                className="w-full py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white transition-all shadow-md shadow-indigo-600/30 cursor-pointer disabled:opacity-40"
-              >
-                Submit Answer
-              </button>
-            ) : (
-              <div
-                className={`p-3.5 rounded-xl text-xs space-y-1.5 border ${
-                  quizSelectedOption === activeDay.quiz.correctIndex
-                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
-                    : 'bg-rose-950/40 border-rose-500/40 text-rose-200'
-                }`}
-              >
-                <div className="font-bold flex items-center space-x-1.5">
-                  {quizSelectedOption === activeDay.quiz.correctIndex ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>Correct! Mastery score updated.</span>
-                    </>
-                  ) : (
-                    <>
-                      <HelpCircle className="w-4 h-4 text-rose-400" />
-                      <span>Review Concept:</span>
-                    </>
-                  )}
-                </div>
-                <p className="text-slate-300 leading-relaxed text-[11px]">{activeDay.quiz.explanation}</p>
+        {/* Daily Quiz & Mastery Tracking (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Daily Quiz */}
+          {currentDay.quiz ? (
+            <div className="art-card p-6 space-y-4">
+              <div className="flex items-center space-x-2 text-xs font-semibold text-[#C95F48]">
+                <HelpCircle className="w-4 h-4" />
+                <span>Day {currentDay.dayNumber} Quick Check</span>
               </div>
-            )}
-          </div>
 
-          {/* Mastery Progress Card */}
-          <div className="glass-panel p-6 rounded-3xl space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
-              <Award className="w-4 h-4 text-indigo-400" />
-              <span>Skill Mastery Tracking</span>
-            </h3>
+              <h3 className="font-editorial text-sm font-bold text-[#293C3A] leading-snug">
+                {currentDay.quiz.question}
+              </h3>
 
-            <div className="space-y-3">
-              {Object.entries(sprintPlan.masteryScores).map(([skill, score]) => (
-                <div key={skill} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-300 truncate max-w-[180px]">{skill}</span>
-                    <span className="font-bold text-white">{score}%</span>
+              <div className="space-y-2">
+                {currentDay.quiz.options.map((opt, idx) => {
+                  const isSelected = quizSelectedOption === idx;
+                  const isCorrect = idx === currentDay.quiz!.correctIndex;
+                  const showResult = quizSubmitted;
+
+                  let optionStyle = 'bg-[#FFF7E8] border-[#D9CFB9] text-[#293C3A] hover:bg-[#E8EBDD]';
+                  if (isSelected && !showResult) {
+                    optionStyle = 'bg-[#C95F48] text-white border-[#C95F48]';
+                  } else if (showResult) {
+                    if (isCorrect) {
+                      optionStyle = 'bg-[#E8EBDD] border-[#466E67] text-[#293C3A] font-semibold';
+                    } else if (isSelected && !isCorrect) {
+                      optionStyle = 'bg-[#FAECE8] border-[#E58B70] text-[#B54E38]';
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={idx}
+                      disabled={quizSubmitted}
+                      onClick={() => setQuizSelectedOption(idx)}
+                      className={`w-full p-3 rounded-xl border text-xs text-left transition-colors cursor-pointer disabled:cursor-default flex items-start space-x-2 ${optionStyle}`}
+                    >
+                      <span className="font-bold shrink-0">{String.fromCharCode(65 + idx)}.</span>
+                      <span>{opt}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {!quizSubmitted ? (
+                <button
+                  onClick={() => handleQuizSubmit(currentDay.quiz!)}
+                  disabled={quizSelectedOption === null}
+                  className="art-btn-primary w-full py-2.5 text-xs font-bold cursor-pointer disabled:opacity-50"
+                >
+                  Check Answer
+                </button>
+              ) : (
+                <div className="p-3 rounded-xl bg-[#E8EBDD] border border-[#C5D5BE] text-xs space-y-1">
+                  <div className="font-bold text-[#38564F]">
+                    {quizSelectedOption === currentDay.quiz.correctIndex ? 'Correct! Well done.' : 'Review this concept:'}
                   </div>
-                  <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className={`h-1.5 rounded-full ${
-                        score < 40 ? 'bg-rose-500' : score < 75 ? 'bg-amber-500' : 'bg-emerald-500'
-                      }`}
-                      style={{ width: `${score}%` }}
-                    />
-                  </div>
+                  <p className="text-[#293C3A] leading-relaxed">
+                    {currentDay.quiz.explanation}
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          ) : (
+            <div className="art-card p-6 text-center text-xs text-[#6B7169]">
+              Complete the day's tasks to solidify your understanding.
+            </div>
+          )}
+
+          {/* Skill Mastery Scores */}
+          {sprintPlan.masteryScores && Object.keys(sprintPlan.masteryScores).length > 0 && (
+            <div className="art-card p-6 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-[#D9CFB9]">
+                <h4 className="text-xs font-bold text-[#293C3A] flex items-center space-x-1.5">
+                  <Layers className="w-3.5 h-3.5 text-[#466E67]" />
+                  <span>Skill Progress</span>
+                </h4>
+                <span className="text-[11px] text-[#6B7169]">Updated live</span>
+              </div>
+
+              <div className="space-y-2.5">
+                {Object.entries(sprintPlan.masteryScores).map(([skill, score]) => (
+                  <div key={skill} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[#293C3A] font-medium truncate max-w-[200px]">{skill}</span>
+                      <span className="font-bold text-[#293C3A]">{score}%</span>
+                    </div>
+                    <div className="w-full bg-[#E8EBDD] rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-[#C95F48] h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${score}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

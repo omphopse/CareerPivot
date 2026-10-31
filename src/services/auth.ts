@@ -1,7 +1,8 @@
 import { getSupabaseClient } from './supabase';
 import type { AuthSession } from '../types';
 
-const AUTH_SESSION_KEY = 'career_pilot_auth_session';
+const AUTH_SESSION_KEY = 'career_pivot_auth_session';
+const LEGACY_AUTH_SESSION_KEY = 'career_pilot_auth_session';
 
 export const authService = {
   /**
@@ -166,18 +167,21 @@ export const authService = {
     }
 
     // Check localStorage session
-    const raw = localStorage.getItem(AUTH_SESSION_KEY);
+    const raw = localStorage.getItem(AUTH_SESSION_KEY) || localStorage.getItem(LEGACY_AUTH_SESSION_KEY);
     if (!raw) return null;
 
     try {
       const session: AuthSession = JSON.parse(raw);
       if (session.expiresAt && session.expiresAt > Date.now()) {
+        localStorage.setItem(AUTH_SESSION_KEY, raw);
         return session;
       }
       localStorage.removeItem(AUTH_SESSION_KEY);
+      localStorage.removeItem(LEGACY_AUTH_SESSION_KEY);
       return null;
     } catch {
       localStorage.removeItem(AUTH_SESSION_KEY);
+      localStorage.removeItem(LEGACY_AUTH_SESSION_KEY);
       return null;
     }
   },
@@ -187,6 +191,7 @@ export const authService = {
    */
   async signOut(): Promise<void> {
     localStorage.removeItem(AUTH_SESSION_KEY);
+    localStorage.removeItem(LEGACY_AUTH_SESSION_KEY);
 
     const client = getSupabaseClient();
     if (client) {

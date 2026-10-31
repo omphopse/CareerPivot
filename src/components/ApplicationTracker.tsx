@@ -2,34 +2,31 @@ import React, { useState } from 'react';
 import {
   Briefcase,
   Plus,
+  LayoutGrid,
+  ListFilter,
+  MapPin,
+  DollarSign,
   Calendar,
   ExternalLink,
-  ChevronRight,
-  ChevronLeft,
   Trash2,
-  CheckCircle2,
-  Clock,
-  Building,
-  DollarSign,
-  MapPin,
-  X,
-  LayoutGrid,
-  ListFilter
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react';
-import { JobApplication, ApplicationStatus } from '../types';
+import type { JobApplication, ApplicationStatus } from '../types';
 
 interface ApplicationTrackerProps {
   applications: JobApplication[];
-  onUpdateApplications: (apps: JobApplication[]) => void;
-  onDeleteApplication?: (appId: string) => void;
+  onUpdateApplications: (updated: JobApplication[]) => void;
+  onDeleteApplication?: (id: string) => void;
 }
 
-const STATUS_COLUMNS: { id: ApplicationStatus; label: string; color: string; bg: string }[] = [
-  { id: 'wishlist', label: 'Wishlist', color: 'text-slate-400', bg: 'bg-slate-800/40 border-slate-700/60' },
-  { id: 'applied', label: 'Applied', color: 'text-cyan-400', bg: 'bg-cyan-950/20 border-cyan-500/30' },
-  { id: 'interviewing', label: 'Interviewing', color: 'text-indigo-400', bg: 'bg-indigo-950/25 border-indigo-500/40' },
-  { id: 'offer', label: 'Offer Received', color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-500/30' },
-  { id: 'rejected', label: 'Archive / Passed', color: 'text-rose-400', bg: 'bg-rose-950/20 border-rose-500/30' }
+const STATUS_COLUMNS: { id: ApplicationStatus; label: string; color: string }[] = [
+  { id: 'wishlist', label: 'Wishlist', color: 'border-[#D9CFB9] text-[#6B7169]' },
+  { id: 'applied', label: 'Applied', color: 'border-[#D8B35F] text-[#7A5B1D]' },
+  { id: 'interviewing', label: 'Interviewing', color: 'border-[#C95F48] text-[#C95F48]' },
+  { id: 'offer', label: 'Offer Received', color: 'border-[#466E67] text-[#38564F]' },
+  { id: 'rejected', label: 'Archived', color: 'border-[#D9CFB9] text-[#6B7169]' }
 ];
 
 export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
@@ -38,9 +35,8 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
   onDeleteApplication
 }) => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
-  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // New Application Form State
   const [formData, setFormData] = useState<Partial<JobApplication>>({
     company: '',
     role: '',
@@ -50,7 +46,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
     fitScore: 75,
     jobUrl: '',
     nextAction: '',
-    followUpDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
+    followUpDate: '',
     notes: ''
   });
 
@@ -102,50 +98,52 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
       fitScore: 75,
       jobUrl: '',
       nextAction: '',
-      followUpDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
+      followUpDate: '',
       notes: ''
     });
   };
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Header & Pipeline KPI Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800">
+    <div className="space-y-6 animate-fadeIn">
+      {/* Header & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#D9CFB9]">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center space-x-2.5">
-            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <Briefcase className="w-5 h-5" />
-            </div>
-            <span>Career Pivot Application Pipeline CRM</span>
+          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#293C3A] flex items-center space-x-2">
+            <Briefcase className="w-6 h-6 text-[#466E67]" />
+            <span>Job Tracker</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Track job applications, next follow-up dates, role fit alignment, and interview stages
+          <p className="text-xs text-[#6B7169] mt-0.5">
+            Track your job applications, interviews, and next steps.
           </p>
         </div>
 
         <div className="flex items-center space-x-2 self-start sm:self-auto">
           {/* View Mode Toggle */}
-          <div className="flex items-center p-1 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+          <div className="flex items-center p-1 rounded-xl bg-[#FFF7E8] border border-[#D9CFB9] text-xs">
             <button
               onClick={() => setViewMode('kanban')}
-              className={`p-1.5 rounded ${viewMode === 'kanban' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                viewMode === 'kanban' ? 'bg-[#C95F48] text-white' : 'text-[#6B7169] hover:text-[#293C3A]'
+              }`}
               title="Kanban Board View"
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded ${viewMode === 'table' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                viewMode === 'table' ? 'bg-[#C95F48] text-white' : 'text-[#6B7169] hover:text-[#293C3A]'
+              }`}
               title="Table List View"
             >
-              <ListFilter className="w-3.5 h-3.5" />
+              <ListFilter className="w-4 h-4" />
             </button>
           </div>
 
           {/* Add Job Button */}
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+            className="art-btn-primary px-3.5 py-1.5 text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Target Job</span>
@@ -155,122 +153,115 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
 
       {/* Kanban Board View */}
       {viewMode === 'kanban' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {STATUS_COLUMNS.map((col) => {
+        <div className="flex space-x-4 overflow-x-auto pb-6 snap-x">
+          {STATUS_COLUMNS.map((col, colIdx) => {
             const colApps = applications.filter((a) => a.status === col.id);
 
             return (
-              <div key={col.id} className="flex flex-col space-y-3">
+              <div
+                key={col.id}
+                className="w-72 shrink-0 flex flex-col space-y-3 snap-start"
+              >
                 {/* Column Header */}
-                <div className={`p-3 rounded-2xl border ${col.bg} flex items-center justify-between`}>
-                  <div className="flex items-center space-x-2">
-                    <span className={`text-xs font-bold ${col.color}`}>{col.label}</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-900/80 text-white">
+                <div className={`p-3 rounded-xl bg-[#FFF7E8] border ${col.color} flex items-center justify-between`}>
+                  <span className="text-xs font-bold">{col.label}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#E8EBDD] text-[#293C3A]">
                     {colApps.length}
                   </span>
                 </div>
 
                 {/* Job Cards */}
-                <div className="space-y-3 flex-1 min-h-[300px]">
+                <div className="space-y-3 min-h-[350px]">
                   {colApps.map((app) => (
                     <div
                       key={app.id}
-                      className="glass-panel p-4 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all space-y-3 group"
+                      className="art-card p-4 space-y-3 hover:border-[#C95F48] transition-colors"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h4 className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
+                          <h4 className="font-editorial text-sm font-bold text-[#293C3A]">
                             {app.company}
                           </h4>
-                          <p className="text-[11px] text-slate-300 font-medium leading-tight mt-0.5">
-                            {app.role}
-                          </p>
+                          <p className="text-xs text-[#6B7169] line-clamp-1">{app.role}</p>
                         </div>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 shrink-0">
-                          {app.fitScore}% Fit
-                        </span>
+                        {app.fitScore && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#E8EBDD] text-[#38564F] shrink-0">
+                            {app.fitScore}% Fit
+                          </span>
+                        )}
                       </div>
 
-                      <div className="space-y-1 text-[11px] text-slate-400">
-                        <div className="flex items-center space-x-1.5">
-                          <DollarSign className="w-3 h-3 text-emerald-400 shrink-0" />
-                          <span>{app.salary}</span>
-                        </div>
-                        <div className="flex items-center space-x-1.5">
-                          <MapPin className="w-3 h-3 text-cyan-400 shrink-0" />
-                          <span>{app.location}</span>
-                        </div>
+                      <div className="space-y-1 text-xs text-[#6B7169]">
+                        {app.salary && (
+                          <div className="flex items-center space-x-1">
+                            <DollarSign className="w-3 h-3 text-[#C95F48]" />
+                            <span>{app.salary}</span>
+                          </div>
+                        )}
+                        {app.location && (
+                          <div className="flex items-center space-x-1">
+                            <MapPin className="w-3 h-3 text-[#466E67]" />
+                            <span>{app.location}</span>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Next Action Box */}
                       {app.nextAction && (
-                        <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 text-[11px] space-y-1">
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase">
-                            <span>Next Action:</span>
+                        <div className="p-2.5 rounded-lg bg-[#F5EBD6] text-xs space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-semibold text-[#6B7169]">
+                            <span>NEXT ACTION:</span>
                             {app.followUpDate && (
-                              <span className="text-amber-400 flex items-center space-x-0.5">
-                                <Clock className="w-2.5 h-2.5" />
+                              <span className="flex items-center space-x-0.5">
+                                <Calendar className="w-2.5 h-2.5" />
                                 <span>{app.followUpDate}</span>
                               </span>
                             )}
                           </div>
-                          <p className="text-slate-200 leading-snug">{app.nextAction}</p>
+                          <p className="text-xs text-[#293C3A]">{app.nextAction}</p>
                         </div>
                       )}
 
                       {/* Card Footer Actions */}
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-xs">
+                      <div className="flex items-center justify-between pt-2 border-t border-[#D9CFB9] text-xs">
                         <div className="flex items-center space-x-1">
-                          {/* Move left */}
-                          {col.id !== 'wishlist' && (
+                          {colIdx > 0 && (
                             <button
-                              onClick={() => {
-                                const currentIndex = STATUS_COLUMNS.findIndex((c) => c.id === col.id);
-                                if (currentIndex > 0) {
-                                  handleStatusChange(app.id, STATUS_COLUMNS[currentIndex - 1].id);
-                                }
-                              }}
-                              title="Move to previous stage"
-                              className="p-1 rounded text-slate-500 hover:text-slate-200"
+                              onClick={() => handleStatusChange(app.id, STATUS_COLUMNS[colIdx - 1].id)}
+                              className="p-1 rounded text-[#6B7169] hover:text-[#293C3A] hover:bg-[#E8EBDD] cursor-pointer"
+                              title={`Move back to ${STATUS_COLUMNS[colIdx - 1].label}`}
                             >
                               <ChevronLeft className="w-3.5 h-3.5" />
                             </button>
                           )}
-
-                          {/* Move right */}
-                          {col.id !== 'rejected' && (
+                          {colIdx < STATUS_COLUMNS.length - 1 && (
                             <button
-                              onClick={() => {
-                                const currentIndex = STATUS_COLUMNS.findIndex((c) => c.id === col.id);
-                                if (currentIndex < STATUS_COLUMNS.length - 1) {
-                                  handleStatusChange(app.id, STATUS_COLUMNS[currentIndex + 1].id);
-                                }
-                              }}
-                              title="Move to next stage"
-                              className="p-1 rounded text-slate-500 hover:text-slate-200"
+                              onClick={() => handleStatusChange(app.id, STATUS_COLUMNS[colIdx + 1].id)}
+                              className="p-1 rounded text-[#6B7169] hover:text-[#293C3A] hover:bg-[#E8EBDD] cursor-pointer"
+                              title={`Advance to ${STATUS_COLUMNS[colIdx + 1].label}`}
                             >
                               <ChevronRight className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
 
-                        <div className="flex items-center space-x-1.5">
+                        <div className="flex items-center space-x-1 text-[#6B7169]">
                           {app.jobUrl && app.jobUrl !== '#' && (
                             <a
                               href={app.jobUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="p-1 rounded text-slate-500 hover:text-indigo-400"
+                              className="p-1 rounded hover:text-[#293C3A] hover:bg-[#E8EBDD]"
+                              title="Open Job Posting"
                             >
-                              <ExternalLink className="w-3 h-3" />
+                              <ExternalLink className="w-3.5 h-3.5" />
                             </a>
                           )}
                           <button
                             onClick={() => handleDelete(app.id)}
-                            className="p-1 rounded text-slate-600 hover:text-rose-400"
+                            className="p-1 rounded hover:text-[#C95F48] hover:bg-[#FAECE8] cursor-pointer"
+                            title="Delete"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -278,7 +269,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                   ))}
 
                   {colApps.length === 0 && (
-                    <div className="h-32 rounded-2xl border border-dashed border-slate-800/80 flex items-center justify-center text-[11px] text-slate-600">
+                    <div className="h-32 rounded-xl border border-dashed border-[#D9CFB9] flex items-center justify-center text-xs text-[#6B7169]">
                       No applications
                     </div>
                   )}
@@ -291,54 +282,50 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
 
       {/* Table List View */}
       {viewMode === 'table' && (
-        <div className="glass-panel rounded-3xl overflow-hidden border border-slate-800">
+        <div className="art-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+              <thead className="bg-[#E8EBDD] text-[#293C3A] border-b border-[#D9CFB9]">
                 <tr>
-                  <th className="p-4">Company & Role</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Salary</th>
-                  <th className="p-4">Fit Score</th>
-                  <th className="p-4">Next Action</th>
-                  <th className="p-4">Follow-Up</th>
-                  <th className="p-4 text-right">Actions</th>
+                  <th className="p-3.5 font-bold">Company</th>
+                  <th className="p-3.5 font-bold">Role</th>
+                  <th className="p-3.5 font-bold">Status</th>
+                  <th className="p-3.5 font-bold">Match</th>
+                  <th className="p-3.5 font-bold">Location</th>
+                  <th className="p-3.5 font-bold">Next Action</th>
+                  <th className="p-3.5 font-bold text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-[#D9CFB9]">
                 {applications.map((app) => (
-                  <tr key={app.id} className="hover:bg-slate-900/40 transition-colors">
-                    <td className="p-4">
-                      <div className="font-bold text-white">{app.company}</div>
-                      <div className="text-slate-400 text-[11px]">{app.role} • {app.location}</div>
-                    </td>
-                    <td className="p-4">
+                  <tr key={app.id} className="hover:bg-[#E8EBDD]/40 transition-colors">
+                    <td className="p-3.5 font-bold text-[#293C3A]">{app.company}</td>
+                    <td className="p-3.5 text-[#6B7169]">{app.role}</td>
+                    <td className="p-3.5">
                       <select
                         value={app.status}
                         onChange={(e) => handleStatusChange(app.id, e.target.value as ApplicationStatus)}
-                        className="px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-200 text-xs font-semibold focus:outline-none"
+                        className="art-input text-xs py-1 px-2 cursor-pointer"
                       >
-                        {STATUS_COLUMNS.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.label}
-                          </option>
+                        {STATUS_COLUMNS.map((col) => (
+                          <option key={col.id} value={col.id}>{col.label}</option>
                         ))}
                       </select>
                     </td>
-                    <td className="p-4 text-slate-300 font-mono">{app.salary}</td>
-                    <td className="p-4">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300">
-                        {app.fitScore}%
-                      </span>
+                    <td className="p-3.5 font-semibold text-[#38564F]">
+                      {app.fitScore ? `${app.fitScore}%` : '-'}
                     </td>
-                    <td className="p-4 text-slate-300 max-w-xs">{app.nextAction}</td>
-                    <td className="p-4 text-amber-400 font-mono text-[11px]">{app.followUpDate || '—'}</td>
-                    <td className="p-4 text-right">
+                    <td className="p-3.5 text-[#6B7169]">{app.location || '-'}</td>
+                    <td className="p-3.5 text-[#6B7169]">
+                      {app.nextAction ? `${app.nextAction} (${app.followUpDate || 'No date'})` : '-'}
+                    </td>
+                    <td className="p-3.5 text-right space-x-1">
                       <button
                         onClick={() => handleDelete(app.id)}
-                        className="p-1 rounded text-slate-500 hover:text-rose-400"
+                        className="p-1 rounded text-[#6B7169] hover:text-[#C95F48] hover:bg-[#FAECE8] cursor-pointer"
+                        title="Delete"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5 inline" />
                       </button>
                     </td>
                   </tr>
@@ -349,131 +336,105 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
         </div>
       )}
 
-      {/* Add Job Application Modal */}
+      {/* Add Target Job Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-bold text-white">Track Target Job Application</h3>
+        <div className="fixed inset-0 z-50 bg-[#293C3A]/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="art-card p-6 sm:p-8 max-w-lg w-full space-y-5 animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-[#D9CFB9]">
+              <h3 className="font-editorial text-lg font-bold text-[#293C3A]">
+                Add Target Job
+              </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                className="text-[#6B7169] hover:text-[#293C3A] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateApplication} className="space-y-4 pt-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-300 font-semibold">Company Name *</label>
+            <form onSubmit={handleCreateApplication} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#293C3A] mb-1">Company *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Coinbase"
                     value={formData.company}
                     onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500"
+                    placeholder="e.g. Stripe, Acme Corp"
+                    className="art-input w-full p-2.5"
                   />
                 </div>
-
-                <div className="space-y-1">
-                  <label className="text-slate-300 font-semibold">Target Role *</label>
+                <div>
+                  <label className="block font-semibold text-[#293C3A] mb-1">Role Title *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Senior Java Backend Engineer"
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500"
+                    placeholder="e.g. Senior Backend Engineer"
+                    className="art-input w-full p-2.5"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-300 font-semibold">Location / Work Mode</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#293C3A] mb-1">Location</label>
                   <input
                     type="text"
-                    placeholder="e.g. Remote (US)"
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500"
+                    placeholder="e.g. Remote"
+                    className="art-input w-full p-2.5"
                   />
                 </div>
-
-                <div className="space-y-1">
-                  <label className="text-slate-300 font-semibold">Target Salary Range</label>
+                <div>
+                  <label className="block font-semibold text-[#293C3A] mb-1">Salary Range</label>
                   <input
                     type="text"
-                    placeholder="e.g. $165,000 - $185,000"
                     value={formData.salary}
                     onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500"
+                    placeholder="e.g. $160k - $190k"
+                    className="art-input w-full p-2.5"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-300 font-semibold">Status Stage</label>
+                <div>
+                  <label className="block font-semibold text-[#293C3A] mb-1">Status</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as ApplicationStatus })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500"
+                    className="art-input w-full p-2.5 cursor-pointer"
                   >
-                    {STATUS_COLUMNS.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
+                    {STATUS_COLUMNS.map((col) => (
+                      <option key={col.id} value={col.id}>{col.label}</option>
                     ))}
                   </select>
                 </div>
-
-                <div className="space-y-1">
-                  <label className="text-slate-300 font-semibold">Follow-Up Date</label>
-                  <input
-                    type="date"
-                    value={formData.followUpDate}
-                    onChange={(e) => setFormData({ ...formData, followUpDate: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-slate-300 font-semibold">Next Immediate Action</label>
+              <div>
+                <label className="block font-semibold text-[#293C3A] mb-1">Next Action</label>
                 <input
                   type="text"
-                  placeholder="e.g. Prepare system design portfolio on Kafka outbox pattern"
                   value={formData.nextAction}
                   onChange={(e) => setFormData({ ...formData, nextAction: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500"
+                  placeholder="e.g. Follow up on application, review system design notes"
+                  className="art-input w-full p-2.5"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-slate-300 font-semibold">Job Posting URL</label>
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={formData.jobUrl}
-                  onChange={(e) => setFormData({ ...formData, jobUrl: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+              <div className="flex justify-end space-x-2 pt-2 border-t border-[#D9CFB9]">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-lg text-slate-400 hover:text-white"
+                  className="art-btn-secondary px-4 py-2 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-500 text-white"
+                  className="art-btn-primary px-5 py-2 cursor-pointer"
                 >
                   Save Application
                 </button>

@@ -1,4 +1,4 @@
-// Career Pilot - AI Career Pivot Coach Types
+// Career Pivot - AI Career Pivot Coach Types
 
 export type StrengthLevel = 'strong' | 'moderate' | 'weak' | 'missing';
 export type MatchCategory = 'match' | 'gap' | 'weak_evidence';

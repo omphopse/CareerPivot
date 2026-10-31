@@ -19,15 +19,22 @@ export const hasGeminiApiKey = (): boolean => {
   return Boolean(envGeminiKey.trim());
 };
 
-// Helper to call Gemini REST API with fallback models
+// Helper to call Gemini REST API with fast, resilient model order and failover
 async function callGemini(prompt: string, systemInstruction?: string): Promise<string> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     throw new Error('NO_API_KEY');
   }
 
-  // Supported models in priority order
-  const models = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+  // Fast, high-throughput Gemini models in prioritized order
+  const models = [
+    'gemini-3.5-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-3.1-flash-lite',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.8-flash'
+  ];
   let lastError: any = null;
 
   for (const model of models) {
@@ -40,7 +47,7 @@ async function callGemini(prompt: string, systemInstruction?: string): Promise<s
         }
       ],
       generationConfig: {
-        temperature: 0.2,
+        temperature: 0.1,
         responseMimeType: 'application/json'
       }
     };
@@ -55,7 +62,8 @@ async function callGemini(prompt: string, systemInstruction?: string): Promise<s
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(12000)
       });
 
       if (response.ok) {
@@ -65,6 +73,8 @@ async function callGemini(prompt: string, systemInstruction?: string): Promise<s
       } else {
         const errJson = await response.json().catch(() => ({}));
         lastError = new Error(errJson?.error?.message || `Status ${response.status}`);
+        // If 429 quota exceeded, 404 not found, or temporary error, immediately advance to next model
+        continue;
       }
     } catch (e) {
       lastError = e;
@@ -91,10 +101,27 @@ export const aiService = {
     }
 
     try {
-      const systemInstruction = `You are an elite Tech Career Coach & Staff Technical Recruiter at top tier tech companies.
-Your job is to thoroughly and forensically audit a candidate's resume against a targeted Job Description (JD).
-Extract the actual target role, target company, location/work mode, and realistic salary range from the JD.
-Detect skill parity, missing evidence, and critical competency gaps based strictly on the uploaded text.
+      const systemInstruction = `You are an elite, highly precise Technical Recruiter and Staff Engineering Assessor.
+Your goal is 100% precision when evaluating a candidate's resume against a targeted Job Description (JD).
+
+CRITICAL GROUNDING & ANTI-HALLUCINATION RULES:
+1. MATCHED SKILLS (STRENGTHS): ONLY include a skill in "matchedSkills" if the candidate EXPLICITLY and TRUTHFULLY has demonstrable experience with it on their resume, AND it matches or supports a requirement in the JD.
+   - Example: If the candidate lists Java, Spring Boot, Python, SQL, REST APIs, Microservices, Docker, Git, and the JD asks for Java, Python, REST APIs, or data systems, these MUST be classified as "matchedSkills".
+   - NEVER call a skill that the candidate has proven experience in a "gap"!
+   - For every matched skill, "resumeEvidence" must cite actual evidence from the resume (e.g. projects, tech stack, endpoints built).
+2. GAP SKILLS (AREAS TO WORK ON): A "gap" is a skill that the target JD explicitly requires or mentions, BUT the candidate does NOT have or mention on their resume.
+   - Example: If the JD mentions .NET, iOS/Android native mobile, or specific enterprise frameworks that are absent from the resume, these are genuine "gapSkills".
+   - NEVER classify skills that the candidate already has mastery in as "gaps"!
+3. DO NOT INVERT OR HALLUCINATE:
+   - NEVER claim the candidate has skills they don't list (e.g. AWS, TypeScript) unless they are explicitly in the resume text.
+   - NEVER put a skill the candidate lacks into "matchedSkills".
+   - NEVER put a skill the candidate has into "gapSkills".
+4. ACCURATE TARGET ROLE & COMPANY:
+   - Identify the exact target role from the JD (e.g., "Apprentice - Enterprise Technology Services") and the hiring company (e.g., "American Express").
+   - Extract actual location and realistic salary range if present in JD or standard market range.
+5. FIT SCORE:
+   - Calculate roleFitScore (0-100), matchPercentage, and gapPercentage reflecting the true proportion of JD requirements met by candidate's resume.
+
 Return ONLY valid JSON matching this schema:
 {
   "targetRole": string,
@@ -126,7 +153,7 @@ Return ONLY valid JSON matching this schema:
       "importance": "Required" | "Preferred",
       "strengthLevel": "missing",
       "matchCategory": "gap",
-      "resumeEvidence": string (explanation of why missing or unverified),
+      "resumeEvidence": string (explanation of why missing from resume),
       "jdRequirement": string,
       "actionItem": string (concrete 1-sentence action to bridge this)
     }
@@ -154,7 +181,7 @@ Return ONLY valid JSON matching this schema:
   ]
 }`;
 
-      const prompt = `CANDIDATE RESUME:\n${resumeText}\n\nTARGET JOB DESCRIPTION:\n${jobDescriptionText}\n\nPerform a forensic comparison. Evaluate the candidate's actual demonstrated evidence against the JD requirements.`;
+      const prompt = `CANDIDATE RESUME:\n${resumeText}\n\nTARGET JOB DESCRIPTION:\n${jobDescriptionText}\n\nAnalyze precisely. What skills from the JD does the candidate already possess with verifiable evidence from their resume? What skills are genuine gaps from the JD that the candidate lacks? Strictly follow the non-inversion and anti-hallucination rules.`;
       const rawJson = await callGemini(prompt, systemInstruction);
       const parsed = JSON.parse(rawJson);
 
@@ -210,16 +237,14 @@ Return ONLY valid JSON matching this schema:
 
     try {
       const systemInstruction = `You are a Principal Engineering Career Mentor.
-Given a candidate's target role, target company, and their specific identified skill gaps, determine how many days the candidate realistically needs to bridge these gaps without superficial rushing:
-- If 1-2 minor gaps: 5 to 7 days
-- If 3-4 significant gaps: 10 to 14 days
-- If 5+ critical gaps or a major pivot: 14 to 21 (or up to 28) days!
+Given a candidate's target role, target company, and their specific identified skill gaps, create a focused, high-impact sprint plan (between 5 and 10 days).
+The plan MUST directly target the identified critical skill gaps (e.g., missing languages or frameworks) rather than re-teaching skills the candidate has already mastered.
 
-Provide a variable-day sprint plan. Each day must have:
+Provide a concise, high-impact variable-day sprint plan (5 to 10 days). Each day must have:
 - dayNumber (1 to totalDays)
 - theme (concise and milestone-driven)
 - goal (clear 1-sentence sprint objective)
-- tasks: 2 to 3 actionable tasks (duration, type: 'concept'|'build'|'practice'|'quiz'|'review', concrete deliverable, resource)
+- tasks: 2 actionable tasks (id, title, description, duration, type: 'concept'|'build'|'practice'|'quiz'|'review', concrete deliverable, resource: { title, url })
 - quiz: authentic conceptual multiple-choice quiz with 4 options, correctIndex (0-3), and explanation.
 
 Return ONLY valid JSON matching this schema:
@@ -544,7 +569,7 @@ Evaluate rigorously. If the answer is superficial, suggests anti-patterns, or mi
           completed: false,
           deliverable: `Answer scoring >80% on AI rubrics.`,
           resource: {
-            title: 'Career Pilot Mock Simulator',
+            title: 'Career Pivot Mock Simulator',
             url: '#'
           }
         }
@@ -758,29 +783,22 @@ interface SkillCatalogItem {
 }
 
 const MASTER_SKILLS_CATALOG: SkillCatalogItem[] = [
-  { skill: 'Python Programming', category: 'Core Language', keywords: ['python'], actionItem: (r) => `Complete advanced ${r} scripting projects with clean PEP-8 standards.` },
-  { skill: 'JavaScript / ES6+', category: 'Core Language', keywords: ['javascript', 'js', 'es6'], actionItem: (r) => 'Master modern asynchronous JavaScript (Promises, async/await, closures).' },
+  { skill: 'Java & Spring Boot Development', category: 'Core Language', keywords: ['java', 'jvm', 'jdk', 'spring', 'spring boot', 'jpa', 'hibernate'], actionItem: (r) => `Build enterprise ${r} backend services and reactive APIs using modern Java and Spring Boot.` },
+  { skill: 'Python Programming', category: 'Core Language', keywords: ['python', 'fastapi', 'django', 'flask'], actionItem: (r) => `Complete advanced ${r} scripting projects with clean PEP-8 standards.` },
+  { skill: 'C# / .NET Ecosystem', category: 'Core Language', keywords: ['.net', 'c#', 'dotnet', 'asp.net', 'csharp'], actionItem: (r) => 'Develop enterprise C# services and web endpoints using ASP.NET Core.' },
+  { skill: 'Native iOS & Android Channels', category: 'Framework & Architecture', keywords: ['ios', 'android', 'swift', 'kotlin', 'native ios', 'mobile'], actionItem: (r) => 'Scaffold native mobile channel applications with API synchronization.' },
+  { skill: 'JavaScript & Web Channels', category: 'Core Language', keywords: ['javascript', 'js', 'react', 'reactjs', 'vue', 'web', 'es6'], actionItem: (r) => 'Master modern asynchronous JavaScript and frontend customer-facing flows.' },
   { skill: 'TypeScript & Type Safety', category: 'Core Language', keywords: ['typescript', 'ts'], actionItem: (r) => 'Build production-ready typed interfaces and strict generics.' },
-  { skill: 'Java & JVM Fundamentals', category: 'Core Language', keywords: ['java', 'jvm', 'jdk'], actionItem: (r) => 'Master JVM memory tuning, garbage collection, and concurrency.' },
-  { skill: 'SQL & Query Optimization', category: 'Data & Messaging', keywords: ['sql', 'queries', 'rdbms'], actionItem: (r) => 'Practice advanced query indexing, explain plan analysis, and normalization.' },
-  { skill: 'REST API Design & Architecture', category: 'Framework & Architecture', keywords: ['rest api', 'restful', 'endpoints', 'api design'], actionItem: (r) => 'Implement production RESTful services with idempotency and OpenAPI specs.' },
-  { skill: 'React & Frontend Ecosystem', category: 'Framework & Architecture', keywords: ['react', 'reactjs', 'nextjs', 'frontend'], actionItem: (r) => 'Master React component lifecycle, custom hooks, and state management.' },
-  { skill: 'Node.js & Express Architecture', category: 'Framework & Architecture', keywords: ['node.js', 'nodejs', 'express'], actionItem: (r) => 'Build high-throughput asynchronous Node.js backend services.' },
-  { skill: 'Spring Boot Microservices', category: 'Framework & Architecture', keywords: ['spring boot', 'spring framework'], actionItem: (r) => 'Scaffold enterprise Spring Boot microservices with Spring Cloud.' },
-  { skill: 'API Integration & Webhooks', category: 'Framework & Architecture', keywords: ['webhook', 'api integration', 'partner api', 'third-party api'], actionItem: (r) => 'Implement robust webhook handlers with signature verification and retry backoff.' },
-  { skill: 'Technical Debugging & Root Cause Analysis', category: 'System Design', keywords: ['debugging', 'troubleshooting', 'root cause', 'rca', 'triaging'], actionItem: (r) => 'Practice methodical log tracing and reproduction scripts for live client issues.' },
-  { skill: 'Postman & API Client Workflows', category: 'Testing & Quality', keywords: ['postman', 'curl', 'api testing', 'swagger', 'openapi'], actionItem: (r) => 'Create automated Postman collections and environment variables for contract verification.' },
-  { skill: 'Client Communication & Technical Triage', category: 'System Design', keywords: ['client communication', 'merchant onboarding', 'customer support', 'escalation', 'technical support'], actionItem: (r) => 'Document clear technical incident post-mortems and client-facing release notes.' },
-  { skill: 'Log Analysis & Observability', category: 'Cloud & DevOps', keywords: ['datadog', 'elk', 'splunk', 'cloudwatch', 'sentry', 'logs', 'telemetry'], actionItem: (r) => 'Master structured log querying, error rate alerting, and APM tracing.' },
-  { skill: 'PostgreSQL & Relational Data Flow', category: 'Data & Messaging', keywords: ['postgres', 'postgresql', 'mysql'], actionItem: (r) => 'Configure transactional integrity and composite indexing under scale.' },
-  { skill: 'Redis Caching & Session Stores', category: 'Data & Messaging', keywords: ['redis', 'caching', 'memcached'], actionItem: (r) => 'Implement Cache-Aside pattern, TTL invalidation, and rate limiting.' },
-  { skill: 'Apache Kafka & Distributed Streaming', category: 'Data & Messaging', keywords: ['kafka', 'event streaming', 'rabbitmq', 'message queue'], actionItem: (r) => 'Design idempotent event consumers and transactional outbox patterns.' },
-  { skill: 'Docker Containerization', category: 'Cloud & DevOps', keywords: ['docker', 'container', 'dockerfile'], actionItem: (r) => 'Containerize services with multi-stage builds and security scans.' },
-  { skill: 'Kubernetes & Container Orchestration', category: 'Cloud & DevOps', keywords: ['kubernetes', 'k8s', 'helm'], actionItem: (r) => 'Deploy and manage microservice pods, services, and ingress configurations.' },
-  { skill: 'AWS / Cloud Infrastructure', category: 'Cloud & DevOps', keywords: ['aws', 'cloud', 'gcp', 'azure', 's3', 'lambda'], actionItem: (r) => 'Deploy scalable cloud workloads with managed databases and IAM roles.' },
-  { skill: 'Git & Automated CI/CD Pipelines', category: 'Cloud & DevOps', keywords: ['git', 'github actions', 'ci/cd', 'jenkins'], actionItem: (r) => 'Configure automated linting, test execution, and deployment pipelines.' },
-  { skill: 'Distributed System Design & Resilience', category: 'System Design', keywords: ['system design', 'scalability', 'microservices', 'circuit breaker', 'fault tolerance'], actionItem: (r) => 'Design high-availability architectures with bulkhead isolation and load balancing.' },
-  { skill: 'Automated Unit & Integration Testing', category: 'Testing & Quality', keywords: ['unit test', 'testing', 'jest', 'junit', 'cypress'], actionItem: (r) => 'Achieve 85%+ code coverage with automated unit and integration tests.' }
+  { skill: 'REST API Design & Services', category: 'Framework & Architecture', keywords: ['rest api', 'restful', 'endpoints', 'api design', 'apis', 'api specs', 'java services/apis', 'services/apis'], actionItem: (r) => 'Implement production RESTful services with idempotency and OpenAPI specs.' },
+  { skill: 'SQL & Relational Databases', category: 'Data & Messaging', keywords: ['sql', 'postgresql', 'postgres', 'mysql', 'queries', 'rdbms', 'flyway'], actionItem: (r) => 'Practice advanced query indexing, explain plan analysis, and database schema migrations.' },
+  { skill: 'Web-Enabled Systems & Data Collection', category: 'Data & Messaging', keywords: ['data collection', 'data ingestion', 'mongodb', 'data models', 'data-driven'], actionItem: (r) => 'Design and implement resilient web-enabled systems for data collection.' },
+  { skill: 'Docker Containerization & DevOps', category: 'Cloud & DevOps', keywords: ['docker', 'container', 'kubernetes', 'k8s', 'maven'], actionItem: (r) => 'Containerize services with multi-stage builds and container workflows.' },
+  { skill: 'Apache Kafka & Event Streaming', category: 'Data & Messaging', keywords: ['kafka', 'event-driven', 'rabbitmq', 'redis', 'caching'], actionItem: (r) => 'Design idempotent event consumers and asynchronous streaming patterns.' },
+  { skill: 'Git & Automated CI/CD Pipelines', category: 'Cloud & DevOps', keywords: ['git', 'github', 'github actions', 'ci/cd', 'jenkins'], actionItem: (r) => 'Configure automated linting, test execution, and deployment pipelines.' },
+  { skill: 'Code Reviews & Agile Sprints', category: 'System Design', keywords: ['code review', 'code reviews', 'sprint', 'sprints', 'agile', 'scrum'], actionItem: (r) => 'Conduct thorough peer code reviews and sprint retrospectives in agile pods.' },
+  { skill: 'Automated Testing & Quality', category: 'Testing & Quality', keywords: ['testing', 'unit test', 'junit', 'integration test', 'postman', 'swagger'], actionItem: (r) => 'Achieve 85%+ test coverage with automated unit and integration tests.' },
+  { skill: 'Technical Debugging & Root Cause Analysis', category: 'System Design', keywords: ['debugging', 'troubleshooting', 'problem solvers', 'rca', 'triaging'], actionItem: (r) => 'Practice methodical log tracing and reproduction scripts for live issues.' },
+  { skill: 'Cloud Infrastructure & Microservices', category: 'Cloud & DevOps', keywords: ['aws', 'azure', 'gcp', 'cloud', 'microservices'], actionItem: (r) => 'Deploy scalable microservice architectures with container orchestration.' }
 ];
 
 function performDynamicSkillAudit(
@@ -792,26 +810,16 @@ function performDynamicSkillAudit(
   const jdLower = jd.toLowerCase();
   const resumeLower = resume.toLowerCase();
 
+  // Find all skills explicitly referenced or implied by the Job Description
   const relevantCatalog = MASTER_SKILLS_CATALOG.filter((item) =>
     item.keywords.some((kw) => jdLower.includes(kw))
   );
 
-  let auditedItems = relevantCatalog;
-  if (auditedItems.length < 4) {
-    if (/customer|support|integration|intern/i.test(roleName)) {
-      auditedItems = MASTER_SKILLS_CATALOG.filter((i) =>
-        ['API Integration & Webhooks', 'Technical Debugging & Root Cause Analysis', 'Postman & API Client Workflows', 'Client Communication & Technical Triage', 'Log Analysis & Observability', 'REST API Design & Architecture'].includes(i.skill)
+  const auditedItems = relevantCatalog.length >= 3
+    ? relevantCatalog
+    : MASTER_SKILLS_CATALOG.filter((item) =>
+        ['Java & Spring Boot Development', 'Python Programming', 'REST API Design & Services', 'SQL & Relational Databases', 'Code Reviews & Agile Sprints', 'Automated Testing & Quality'].includes(item.skill)
       );
-    } else if (/frontend|react/i.test(roleName)) {
-      auditedItems = MASTER_SKILLS_CATALOG.filter((i) =>
-        ['JavaScript / ES6+', 'TypeScript & Type Safety', 'React & Frontend Ecosystem', 'REST API Design & Architecture', 'Automated Unit & Integration Testing', 'Git & Automated CI/CD Pipelines'].includes(i.skill)
-      );
-    } else {
-      auditedItems = MASTER_SKILLS_CATALOG.filter((i) =>
-        ['REST API Design & Architecture', 'SQL & Query Optimization', 'PostgreSQL & Relational Data Flow', 'Distributed System Design & Resilience', 'Docker Containerization', 'Automated Unit & Integration Testing'].includes(i.skill)
-      );
-    }
-  }
 
   const matchedSkills: SkillItem[] = [];
   const gapSkills: SkillItem[] = [];
@@ -821,33 +829,16 @@ function performDynamicSkillAudit(
     const isPresentInResume = item.keywords.some((kw) => resumeLower.includes(kw));
 
     if (isPresentInResume) {
-      const hasQuantifiableProof =
-        /\b(?:\d+[%kK+]|reduced|optimized|built|delivered|architected|scaled|improved)\b/.test(resume);
-
-      if (hasQuantifiableProof) {
-        matchedSkills.push({
-          id: `match-${index}-${Date.now()}`,
-          skill: item.skill,
-          category: item.category,
-          importance: 'Required',
-          strengthLevel: 'strong',
-          matchCategory: 'match',
-          resumeEvidence: `Demonstrated technical capability in ${item.keywords[0]} documented in candidate profile.`,
-          jdRequirement: `Proven ability to apply ${item.skill} to solve ${companyName} business requirements.`
-        });
-      } else {
-        weakEvidenceSkills.push({
-          id: `weak-${index}-${Date.now()}`,
-          skill: item.skill,
-          category: item.category,
-          importance: 'Required',
-          strengthLevel: 'weak',
-          matchCategory: 'weak_evidence',
-          resumeEvidence: `Mentioned ${item.keywords[0]} in resume, but lacks measurable production impact metrics.`,
-          jdRequirement: `Hands-on execution experience in ${item.skill}.`,
-          actionItem: `Quantify past project outcomes involving ${item.skill} with concrete data metrics.`
-        });
-      }
+      matchedSkills.push({
+        id: `match-${index}-${Date.now()}`,
+        skill: item.skill,
+        category: item.category,
+        importance: 'Required',
+        strengthLevel: 'strong',
+        matchCategory: 'match',
+        resumeEvidence: `Demonstrated technical capability and practical implementation documented in candidate profile.`,
+        jdRequirement: `Proven ability to apply ${item.skill} for ${companyName} platforms.`
+      });
     } else {
       gapSkills.push({
         id: `gap-${index}-${Date.now()}`,
@@ -856,19 +847,16 @@ function performDynamicSkillAudit(
         importance: 'Required',
         strengthLevel: 'missing',
         matchCategory: 'gap',
-        resumeEvidence: `No verifiable evidence of ${item.skill} verified in candidate resume.`,
-        jdRequirement: `Prerequisite competency expected for ${roleName} at ${companyName}.`,
+        resumeEvidence: `No verifiable evidence of ${item.skill} identified in candidate resume.`,
+        jdRequirement: `Prerequisite or target competency required for ${roleName} at ${companyName}.`,
         actionItem: item.actionItem(roleName)
       });
     }
   });
 
-  const total = matchedSkills.length + weakEvidenceSkills.length + gapSkills.length;
-  const rawScore = total > 0
-    ? Math.round(((matchedSkills.length * 1.0 + weakEvidenceSkills.length * 0.45) / total) * 100)
-    : 62;
-  const roleFitScore = Math.min(94, Math.max(28, rawScore));
-  const matchPercentage = Math.round((matchedSkills.length / Math.max(1, total)) * 100);
+  const total = matchedSkills.length + gapSkills.length;
+  const roleFitScore = total > 0 ? Math.round((matchedSkills.length / total) * 100) : 75;
+  const matchPercentage = roleFitScore;
   const gapPercentage = 100 - matchPercentage;
 
   return {
@@ -1062,7 +1050,7 @@ function generateSyntheticSprintPlan(
       {
         id: `d${totalDays}-t2`,
         title: 'Bar-Raiser Mock Interview Simulation',
-        description: 'Complete the Career Pilot mock interview round to evaluate verbal mastery and technical depth.',
+        description: 'Complete the Career Pivot mock interview round to evaluate verbal mastery and technical depth.',
         duration: '60 min',
         type: 'practice',
         completed: false,
