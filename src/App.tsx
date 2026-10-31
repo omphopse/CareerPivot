@@ -70,7 +70,7 @@ export function App() {
     setAnswersByQuestionId(ansMap);
   };
 
-  // Restore authenticated session on app initialization
+  // Restore authenticated session on app initialization & subscribe to auth changes
   useEffect(() => {
     let isMounted = true;
     authService
@@ -89,8 +89,22 @@ export function App() {
         if (isMounted) setIsAuthChecking(false);
       });
 
+    // Automatically handle email link clicks & real-time token validation
+    const unsubscribe = authService.onAuthStateChange((session) => {
+      if (!isMounted) return;
+      if (session?.user) {
+        storageService.setUserId(session.user.id);
+        setCurrentUser(session.user);
+        loadUserData(session.user.id);
+        setIsAuthChecking(false);
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 

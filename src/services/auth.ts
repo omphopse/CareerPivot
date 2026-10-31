@@ -196,5 +196,38 @@ export const authService = {
         console.warn('Supabase signOut error:', e);
       }
     }
+  },
+
+  /**
+   * Listen to real-time auth events (e.g. user clicks email magic link or verifies OTP)
+   */
+  onAuthStateChange(callback: (session: AuthSession | null) => void): () => void {
+    const client = getSupabaseClient();
+    if (!client) return () => {};
+
+    const {
+      data: { subscription }
+    } = client.auth.onAuthStateChange((event, supaSession) => {
+      if (supaSession?.user) {
+        const session: AuthSession = {
+          user: {
+            id: supaSession.user.id,
+            email: supaSession.user.email || '',
+            createdAt: supaSession.user.created_at
+          },
+          token: supaSession.access_token,
+          expiresAt: supaSession.expires_at ? supaSession.expires_at * 1000 : Date.now() + 30 * 86400000
+        };
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+        callback(session);
+      } else if (event === 'SIGNED_OUT') {
+        localStorage.removeItem(AUTH_SESSION_KEY);
+        callback(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }
 };
