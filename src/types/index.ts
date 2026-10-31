@@ -150,3 +150,17 @@ export interface DashboardStats {
   interviewAverageScore: number;
   dayStreak: number;
 }
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  fullName?: string;
+  createdAt?: string;
+}
+
+export interface AuthSession {
+  user: AuthUser;
+  token?: string;
+  expiresAt: number;
+}
+

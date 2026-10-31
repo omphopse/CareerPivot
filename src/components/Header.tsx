@@ -10,10 +10,13 @@ import {
   PlusCircle,
   Flame,
   CheckCircle2,
-  Database
+  Database,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 import { hasGeminiApiKey } from '../services/gemini';
 import { isSupabaseConnected } from '../services/supabase';
+import type { AuthUser } from '../types';
 
 interface HeaderProps {
   activeTab: 'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker';
@@ -21,6 +24,8 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onStartNewAnalysis: () => void;
   streakCount: number;
+  currentUser?: AuthUser | null;
+  onSignOut?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,7 +33,9 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   onOpenSettings,
   onStartNewAnalysis,
-  streakCount
+  streakCount,
+  currentUser,
+  onSignOut
 }) => {
   const geminiActive = hasGeminiApiKey();
   const supabaseActive = isSupabaseConnected();
@@ -176,6 +183,29 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Settings className="w-4 h-4" />
             </button>
+
+            {/* Authenticated User Profile & Sign Out */}
+            {currentUser && (
+              <div className="flex items-center space-x-2 pl-2 border-l border-slate-800">
+                <div className="hidden sm:flex flex-col text-right">
+                  <span className="text-xs font-semibold text-slate-200 truncate max-w-[130px]" title={currentUser.email}>
+                    {currentUser.email.split('@')[0]}
+                  </span>
+                  <span className="text-[10px] text-emerald-400 flex items-center justify-end space-x-0.5">
+                    <ShieldCheck className="w-3 h-3" />
+                    <span>Verified</span>
+                  </span>
+                </div>
+                <button
+                  onClick={onSignOut}
+                  title={`Sign out (${currentUser.email})`}
+                  className="flex items-center space-x-1 p-2 rounded-lg text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden xl:inline text-xs font-medium">Log out</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

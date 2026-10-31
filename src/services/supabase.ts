@@ -59,14 +59,37 @@ const STORAGE_KEYS = {
 };
 
 export const storageService = {
+  activeUserId: null as string | null,
+
+  setUserId(userId: string | null) {
+    this.activeUserId = userId;
+  },
+
+  getStorageKeys(userId?: string) {
+    const id = userId || this.activeUserId;
+    const prefix = id ? `cp_${id}_` : 'cp_';
+    return {
+      DIAGNOSIS: `${prefix}diagnosis_data`,
+      SPRINT_PLAN: `${prefix}sprint_plan_data`,
+      INTERVIEWS: `${prefix}interviews_data`,
+      APPLICATIONS: `${prefix}applications_data`,
+      QUESTIONS: `${prefix}questions_data`,
+      ANSWERS: `${prefix}interview_answers`
+    };
+  },
+
   // Diagnosis
-  async saveDiagnosis(diagnosis: CareerDiagnosisResult): Promise<void> {
-    localStorage.setItem(STORAGE_KEYS.DIAGNOSIS, JSON.stringify(diagnosis));
+  async saveDiagnosis(diagnosis: CareerDiagnosisResult, userId?: string): Promise<void> {
+    const uid = userId || this.activeUserId;
+    const keys = this.getStorageKeys(uid || undefined);
+    localStorage.setItem(keys.DIAGNOSIS, JSON.stringify(diagnosis));
+
     const client = getSupabaseClient();
     if (client) {
       try {
         await client.from('analyses').upsert({
           id: diagnosis.id,
+          user_id: uid,
           target_role: diagnosis.targetRole,
           target_company: diagnosis.targetCompany,
           resume_text: 'stored',
@@ -81,24 +104,29 @@ export const storageService = {
           interview_focus_areas: diagnosis.interviewFocusAreas
         });
       } catch (e) {
-        console.warn('Supabase save error (falling back to local):', e);
+        console.warn('Supabase save diagnosis error (falling back to local):', e);
       }
     }
   },
 
-  getDiagnosis(): CareerDiagnosisResult | null {
-    const raw = localStorage.getItem(STORAGE_KEYS.DIAGNOSIS);
+  getDiagnosis(userId?: string): CareerDiagnosisResult | null {
+    const keys = this.getStorageKeys(userId);
+    const raw = localStorage.getItem(keys.DIAGNOSIS);
     return raw ? JSON.parse(raw) : null;
   },
 
   // Sprint Plan
-  async saveSprintPlan(plan: SprintPlan): Promise<void> {
-    localStorage.setItem(STORAGE_KEYS.SPRINT_PLAN, JSON.stringify(plan));
+  async saveSprintPlan(plan: SprintPlan, userId?: string): Promise<void> {
+    const uid = userId || this.activeUserId;
+    const keys = this.getStorageKeys(uid || undefined);
+    localStorage.setItem(keys.SPRINT_PLAN, JSON.stringify(plan));
+
     const client = getSupabaseClient();
     if (client) {
       try {
         await client.from('sprint_plans').upsert({
           id: plan.id,
+          user_id: uid,
           target_role: plan.targetRole,
           current_day: plan.currentDay,
           days: plan.days,
@@ -111,22 +139,26 @@ export const storageService = {
     }
   },
 
-  getSprintPlan(): SprintPlan | null {
-    const raw = localStorage.getItem(STORAGE_KEYS.SPRINT_PLAN);
+  getSprintPlan(userId?: string): SprintPlan | null {
+    const keys = this.getStorageKeys(userId);
+    const raw = localStorage.getItem(keys.SPRINT_PLAN);
     return raw ? JSON.parse(raw) : null;
   },
 
   // Interview History
-  async saveInterviewEvaluation(evaluation: InterviewEvaluation): Promise<void> {
-    const current = this.getInterviewEvaluations();
+  async saveInterviewEvaluation(evaluation: InterviewEvaluation, userId?: string): Promise<void> {
+    const uid = userId || this.activeUserId;
+    const current = this.getInterviewEvaluations(uid || undefined);
     const updated = [evaluation, ...current.filter((e) => e.id !== evaluation.id)];
-    localStorage.setItem(STORAGE_KEYS.INTERVIEWS, JSON.stringify(updated));
+    const keys = this.getStorageKeys(uid || undefined);
+    localStorage.setItem(keys.INTERVIEWS, JSON.stringify(updated));
 
     const client = getSupabaseClient();
     if (client) {
       try {
-        await client.from('mock_interviews').insert({
+        await client.from('mock_interviews').upsert({
           id: evaluation.id,
+          user_id: uid,
           target_role: 'Senior Java Backend Engineer',
           question_text: evaluation.questionText,
           category: 'Interview Practice',
@@ -141,21 +173,25 @@ export const storageService = {
     }
   },
 
-  getInterviewEvaluations(): InterviewEvaluation[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.INTERVIEWS);
+  getInterviewEvaluations(userId?: string): InterviewEvaluation[] {
+    const keys = this.getStorageKeys(userId);
+    const raw = localStorage.getItem(keys.INTERVIEWS);
     return raw ? JSON.parse(raw) : [];
   },
 
   // Job Applications
-  async saveJobApplications(apps: JobApplication[]): Promise<void> {
-    localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(apps));
+  async saveJobApplications(apps: JobApplication[], userId?: string): Promise<void> {
+    const uid = userId || this.activeUserId;
+    const keys = this.getStorageKeys(uid || undefined);
+    localStorage.setItem(keys.APPLICATIONS, JSON.stringify(apps));
+
     const client = getSupabaseClient();
     if (client) {
       try {
-        // Upsert all applications
         for (const app of apps) {
           await client.from('job_applications').upsert({
             id: app.id,
+            user_id: uid,
             company: app.company,
             role: app.role,
             location: app.location,
@@ -174,38 +210,44 @@ export const storageService = {
     }
   },
 
-  getJobApplications(): JobApplication[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
+  getJobApplications(userId?: string): JobApplication[] {
+    const keys = this.getStorageKeys(userId);
+    const raw = localStorage.getItem(keys.APPLICATIONS);
     return raw ? JSON.parse(raw) : [];
   },
 
   // Dynamic Interview Questions
-  saveInterviewQuestions(questions: any[]): void {
-    localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(questions));
+  saveInterviewQuestions(questions: any[], userId?: string): void {
+    const keys = this.getStorageKeys(userId);
+    localStorage.setItem(keys.QUESTIONS, JSON.stringify(questions));
   },
 
-  getInterviewQuestions(): any[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.QUESTIONS);
+  getInterviewQuestions(userId?: string): any[] {
+    const keys = this.getStorageKeys(userId);
+    const raw = localStorage.getItem(keys.QUESTIONS);
     return raw ? JSON.parse(raw) : [];
   },
 
   // Answers per question
-  saveInterviewAnswers(answers: Record<string, string>): void {
-    localStorage.setItem(STORAGE_KEYS.ANSWERS, JSON.stringify(answers));
+  saveInterviewAnswers(answers: Record<string, string>, userId?: string): void {
+    const keys = this.getStorageKeys(userId);
+    localStorage.setItem(keys.ANSWERS, JSON.stringify(answers));
   },
 
-  getInterviewAnswers(): Record<string, string> {
-    const raw = localStorage.getItem(STORAGE_KEYS.ANSWERS);
+  getInterviewAnswers(userId?: string): Record<string, string> {
+    const keys = this.getStorageKeys(userId);
+    const raw = localStorage.getItem(keys.ANSWERS);
     return raw ? JSON.parse(raw) : {};
   },
 
-  // Reset/Clear Pivot Session
-  clearPivotData(): void {
-    localStorage.removeItem(STORAGE_KEYS.DIAGNOSIS);
-    localStorage.removeItem(STORAGE_KEYS.SPRINT_PLAN);
-    localStorage.removeItem(STORAGE_KEYS.INTERVIEWS);
-    localStorage.removeItem(STORAGE_KEYS.APPLICATIONS);
-    localStorage.removeItem(STORAGE_KEYS.QUESTIONS);
-    localStorage.removeItem(STORAGE_KEYS.ANSWERS);
+  // Reset/Clear Pivot Session for the user
+  clearPivotData(userId?: string): void {
+    const keys = this.getStorageKeys(userId);
+    localStorage.removeItem(keys.DIAGNOSIS);
+    localStorage.removeItem(keys.SPRINT_PLAN);
+    localStorage.removeItem(keys.INTERVIEWS);
+    localStorage.removeItem(keys.APPLICATIONS);
+    localStorage.removeItem(keys.QUESTIONS);
+    localStorage.removeItem(keys.ANSWERS);
   }
 };

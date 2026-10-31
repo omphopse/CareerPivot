@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CareerDiagnosis } from './components/CareerDiagnosis';
@@ -7,17 +7,21 @@ import { InterviewCoach } from './components/InterviewCoach';
 import { ApplicationTracker } from './components/ApplicationTracker';
 import { SettingsModal } from './components/SettingsModal';
 import { CompulsoryOnboarding } from './components/CompulsoryOnboarding';
+import { AuthPortal } from './components/AuthPortal';
 import type {
   CareerDiagnosisResult,
   SprintPlan,
   JobApplication,
   InterviewEvaluation,
-  InterviewQuestion
+  InterviewQuestion,
+  AuthUser,
+  AuthSession
 } from './types';
 import { storageService } from './services/supabase';
 import { aiService } from './services/gemini';
+import { authService } from './services/auth';
 import confetti from 'canvas-confetti';
-import { Zap } from 'lucide-react';
+import { Zap, Compass } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker'>('dashboard');
@@ -27,39 +31,90 @@ export function App() {
   const [evaluatingQuestionIds, setEvaluatingQuestionIds] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Core Data States - initialized strictly from storage or null
-  const [diagnosis, setDiagnosis] = useState<CareerDiagnosisResult | null>(() => {
-    return storageService.getDiagnosis();
-  });
+  // Authentication States
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
-  const [sprintPlan, setSprintPlan] = useState<SprintPlan | null>(() => {
-    return storageService.getSprintPlan();
-  });
-
-  const [questions, setQuestions] = useState<InterviewQuestion[]>(() => {
-    return storageService.getInterviewQuestions();
-  });
-
-  const [applications, setApplications] = useState<JobApplication[]>(() => {
-    return storageService.getJobApplications();
-  });
-
-  const [evaluationsByQuestionId, setEvaluationsByQuestionId] = useState<Record<string, InterviewEvaluation>>(() => {
-    const list = storageService.getInterviewEvaluations();
-    const map: Record<string, InterviewEvaluation> = {};
-    list.forEach((e) => {
-      if (e.questionId) {
-        map[e.questionId] = e;
-      }
-    });
-    return map;
-  });
-
-  const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, string>>(() => {
-    return storageService.getInterviewAnswers();
-  });
+  // Core Data States - scoped strictly to the authenticated user
+  const [diagnosis, setDiagnosis] = useState<CareerDiagnosisResult | null>(null);
+  const [sprintPlan, setSprintPlan] = useState<SprintPlan | null>(null);
+  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [evaluationsByQuestionId, setEvaluationsByQuestionId] = useState<Record<string, InterviewEvaluation>>({});
+  const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, string>>({});
 
   const [streakCount] = useState(1);
+
+  // Load user data strictly isolated to the authenticated user ID
+  const loadUserData = (userId: string) => {
+    storageService.setUserId(userId);
+    const diag = storageService.getDiagnosis(userId);
+    const plan = storageService.getSprintPlan(userId);
+    const qList = storageService.getInterviewQuestions(userId);
+    const appList = storageService.getJobApplications(userId);
+    const evalList = storageService.getInterviewEvaluations(userId);
+    const ansMap = storageService.getInterviewAnswers(userId);
+
+    const evalMap: Record<string, InterviewEvaluation> = {};
+    evalList.forEach((e) => {
+      if (e.questionId) {
+        evalMap[e.questionId] = e;
+      }
+    });
+
+    setDiagnosis(diag);
+    setSprintPlan(plan);
+    setQuestions(qList);
+    setApplications(appList);
+    setEvaluationsByQuestionId(evalMap);
+    setAnswersByQuestionId(ansMap);
+  };
+
+  // Restore authenticated session on app initialization
+  useEffect(() => {
+    let isMounted = true;
+    authService
+      .getSession()
+      .then((session) => {
+        if (!isMounted) return;
+        if (session?.user) {
+          storageService.setUserId(session.user.id);
+          setCurrentUser(session.user);
+          loadUserData(session.user.id);
+        }
+        setIsAuthChecking(false);
+      })
+      .catch((err) => {
+        console.warn('Authentication session check error:', err);
+        if (isMounted) setIsAuthChecking(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleLoginSuccess = (session: AuthSession) => {
+    storageService.setUserId(session.user.id);
+    setCurrentUser(session.user);
+    loadUserData(session.user.id);
+    showToast(`⚡ Authenticated as ${session.user.email}`);
+  };
+
+  const handleSignOut = async () => {
+    if (confirm('Are you sure you want to log out? Your session data will remain securely saved in your private account.')) {
+      await authService.signOut();
+      storageService.setUserId(null);
+      setCurrentUser(null);
+      setDiagnosis(null);
+      setSprintPlan(null);
+      setQuestions([]);
+      setApplications([]);
+      setEvaluationsByQuestionId({});
+      setAnswersByQuestionId({});
+      showToast('You have been logged out.');
+    }
+  };
 
   // Show Toast helper
   const showToast = (msg: string) => {
@@ -119,11 +174,11 @@ export function App() {
         dateAdded: new Date().toISOString().split('T')[0]
       };
 
-      // Persist to storage and Supabase
-      await storageService.saveDiagnosis(diagResult);
-      await storageService.saveSprintPlan(planResult);
-      storageService.saveInterviewQuestions(generatedQuestions);
-      await storageService.saveJobApplications([initialApp]);
+      // Persist to storage and Supabase strictly scoped to this authenticated user
+      await storageService.saveDiagnosis(diagResult, currentUser?.id);
+      await storageService.saveSprintPlan(planResult, currentUser?.id);
+      storageService.saveInterviewQuestions(generatedQuestions, currentUser?.id);
+      await storageService.saveJobApplications([initialApp], currentUser?.id);
 
       // Update state
       setDiagnosis(diagResult);
@@ -152,13 +207,13 @@ export function App() {
 
   const handleUpdateSprintPlan = async (updated: SprintPlan) => {
     setSprintPlan(updated);
-    await storageService.saveSprintPlan(updated);
+    await storageService.saveSprintPlan(updated, currentUser?.id);
   };
 
   const handleUpdateAnswer = (questionId: string, answer: string) => {
     setAnswersByQuestionId((prev) => {
       const updated = { ...prev, [questionId]: answer };
-      storageService.saveInterviewAnswers(updated);
+      storageService.saveInterviewAnswers(updated, currentUser?.id);
       return updated;
     });
   };
@@ -178,7 +233,7 @@ export function App() {
         [question.id]: evaluation
       }));
 
-      await storageService.saveInterviewEvaluation(evaluation);
+      await storageService.saveInterviewEvaluation(evaluation, currentUser?.id);
 
       if (evaluation.score < 60) {
         showToast(`AI Graded: ${evaluation.score}/100. Weakness flagged! Click 'Sync Weakness & Extend Sprint'`);
@@ -196,7 +251,7 @@ export function App() {
     if (!sprintPlan) return;
     const recalibrated = aiService.recalibrateSprintPlan(sprintPlan, evaluation);
     setSprintPlan(recalibrated);
-    await storageService.saveSprintPlan(recalibrated);
+    await storageService.saveSprintPlan(recalibrated, currentUser?.id);
     confetti({
       particleCount: 60,
       spread: 70,
@@ -207,12 +262,12 @@ export function App() {
 
   const handleUpdateApplications = async (updatedApps: JobApplication[]) => {
     setApplications(updatedApps);
-    await storageService.saveJobApplications(updatedApps);
+    await storageService.saveJobApplications(updatedApps, currentUser?.id);
   };
 
   const handleStartNewAnalysis = () => {
     if (confirm('Start a fresh Career Pivot analysis? This will clear current session data.')) {
-      storageService.clearPivotData();
+      storageService.clearPivotData(currentUser?.id);
       setDiagnosis(null);
       setSprintPlan(null);
       setQuestions([]);
@@ -225,7 +280,7 @@ export function App() {
   };
 
   const handleResetData = () => {
-    storageService.clearPivotData();
+    storageService.clearPivotData(currentUser?.id);
     setDiagnosis(null);
     setSprintPlan(null);
     setQuestions([]);
@@ -236,13 +291,35 @@ export function App() {
     showToast('All data reset.');
   };
 
-  // Compulsory Onboarding Gate: If no active diagnosis exists, show intake screen!
+  // Gate 1: Session Verification Splash Screen
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300 space-y-4 font-sans selection:bg-indigo-500 selection:text-white">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center shadow-2xl">
+          <Compass className="w-8 h-8 text-indigo-400 animate-spin" />
+        </div>
+        <div className="text-center space-y-1">
+          <h2 className="text-sm font-bold text-white tracking-wider uppercase">Career Pilot</h2>
+          <p className="text-xs text-slate-400">Verifying secure authenticated session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Gate 2: Compulsory Authentication Barrier (User MUST log in with Email OTP before accessing any feature)
+  if (!currentUser) {
+    return <AuthPortal onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Gate 3: Compulsory Onboarding Gate (If no active diagnosis exists, show intake screen)
   if (!diagnosis || !sprintPlan) {
     return (
       <CompulsoryOnboarding
         onStartAnalysis={handleStartAnalysis}
         isAnalyzing={isAnalyzing}
         analyzingStep={analyzingStep}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
       />
     );
   }
@@ -266,6 +343,8 @@ export function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onStartNewAnalysis={handleStartNewAnalysis}
         streakCount={streakCount}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
       />
 
       {/* Main Content Area */}

@@ -8,19 +8,25 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
-  FileCheck
+  FileCheck,
+  LogOut
 } from 'lucide-react';
+import type { AuthUser } from '../types';
 
 interface CompulsoryOnboardingProps {
   onStartAnalysis: (resume: string, jd: string, targetRole?: string, targetCompany?: string) => Promise<void>;
   isAnalyzing: boolean;
   analyzingStep: string;
+  currentUser?: AuthUser | null;
+  onSignOut?: () => void;
 }
 
 export const CompulsoryOnboarding: React.FC<CompulsoryOnboardingProps> = ({
   onStartAnalysis,
   isAnalyzing,
-  analyzingStep
+  analyzingStep,
+  currentUser,
+  onSignOut
 }) => {
   const [resumeText, setResumeText] = useState('');
   const [jdText, setJdText] = useState('');
@@ -79,6 +85,23 @@ export const CompulsoryOnboarding: React.FC<CompulsoryOnboardingProps> = ({
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl w-full mx-auto space-y-8 animate-fadeIn">
+        {/* Top User Bar */}
+        {currentUser && onSignOut && (
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 text-xs text-slate-400">
+            <span className="flex items-center space-x-1.5">
+              <span>Account:</span>
+              <strong className="text-white">{currentUser.email}</strong>
+            </span>
+            <button
+              onClick={onSignOut}
+              className="flex items-center space-x-1 text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Log out</span>
+            </button>
+          </div>
+        )}
+
         {/* Brand Header */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-0.5 shadow-xl shadow-indigo-500/20 mb-2">
