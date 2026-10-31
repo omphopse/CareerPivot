@@ -68,6 +68,19 @@ export function App() {
     setApplications(appList);
     setEvaluationsByQuestionId(evalMap);
     setAnswersByQuestionId(ansMap);
+
+    // Asynchronously fetch from Supabase to merge any remote job applications
+    storageService.fetchJobApplicationsFromRemote(userId).then((remoteApps) => {
+      if (remoteApps && remoteApps.length > 0) {
+        const localApps = storageService.getJobApplications(userId);
+        const map = new Map<string, JobApplication>();
+        remoteApps.forEach((app) => map.set(app.id, app));
+        localApps.forEach((app) => map.set(app.id, app));
+        const merged = Array.from(map.values());
+        setApplications(merged);
+        storageService.saveJobApplications(merged, userId);
+      }
+    });
   };
 
   // Restore authenticated session on app initialization & subscribe to auth changes
@@ -172,7 +185,7 @@ export function App() {
       );
 
       // Step 4: Application CRM Initialization
-      setAnalyzingStep('4/4: Initializing your job application pipeline CRM...');
+      setAnalyzingStep('4/4: Updating your job application pipeline CRM...');
       const initialApp: JobApplication = {
         id: `app-${Date.now()}`,
         company: diagResult.targetCompany || 'Target Employer',
@@ -188,17 +201,29 @@ export function App() {
         dateAdded: new Date().toISOString().split('T')[0]
       };
 
+      // Retrieve existing applications so we NEVER overwrite previous jobs
+      const existingApps = storageService.getJobApplications(currentUser?.id);
+      const otherApps = existingApps.filter(
+        (a) =>
+          a.id !== initialApp.id &&
+          !(
+            a.company.trim().toLowerCase() === initialApp.company.trim().toLowerCase() &&
+            a.role.trim().toLowerCase() === initialApp.role.trim().toLowerCase()
+          )
+      );
+      const mergedApps = [initialApp, ...otherApps];
+
       // Persist to storage and Supabase strictly scoped to this authenticated user
       await storageService.saveDiagnosis(diagResult, currentUser?.id);
       await storageService.saveSprintPlan(planResult, currentUser?.id);
       storageService.saveInterviewQuestions(generatedQuestions, currentUser?.id);
-      await storageService.saveJobApplications([initialApp], currentUser?.id);
+      await storageService.saveJobApplications(mergedApps, currentUser?.id);
 
       // Update state
       setDiagnosis(diagResult);
       setSprintPlan(planResult);
       setQuestions(generatedQuestions);
-      setApplications([initialApp]);
+      setApplications(mergedApps);
       setEvaluationsByQuestionId({});
       setAnswersByQuestionId({});
       setEvaluatingQuestionIds([]);
@@ -279,22 +304,30 @@ export function App() {
     await storageService.saveJobApplications(updatedApps, currentUser?.id);
   };
 
+  const handleDeleteApplication = async (appId: string) => {
+    const updated = applications.filter((app) => app.id !== appId);
+    setApplications(updated);
+    await storageService.deleteJobApplication(appId, currentUser?.id);
+    showToast('Job application removed from CRM.');
+  };
+
   const handleStartNewAnalysis = () => {
-    if (confirm('Start a fresh Career Pivot analysis? This will clear current session data.')) {
+    if (confirm('Start a fresh Career Pivot analysis? This will evaluate a new role while preserving all your saved job applications.')) {
+      const currentApps = storageService.getJobApplications(currentUser?.id);
       storageService.clearPivotData(currentUser?.id);
       setDiagnosis(null);
       setSprintPlan(null);
       setQuestions([]);
-      setApplications([]);
+      setApplications(currentApps);
       setEvaluationsByQuestionId({});
       setAnswersByQuestionId({});
       setEvaluatingQuestionIds([]);
-      showToast('Ready for new Resume & Job Description input.');
+      showToast('Ready for new Resume & Job Description input. Your job tracker applications are preserved.');
     }
   };
 
   const handleResetData = () => {
-    storageService.clearPivotData(currentUser?.id);
+    storageService.clearAllData(currentUser?.id);
     setDiagnosis(null);
     setSprintPlan(null);
     setQuestions([]);
@@ -408,6 +441,7 @@ export function App() {
           <ApplicationTracker
             applications={applications}
             onUpdateApplications={handleUpdateApplications}
+            onDeleteApplication={handleDeleteApplication}
           />
         )}
       </main>

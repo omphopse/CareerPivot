@@ -210,6 +210,63 @@ export const storageService = {
     }
   },
 
+  async deleteJobApplication(appId: string, userId?: string): Promise<void> {
+    const uid = userId || this.activeUserId;
+    const keys = this.getStorageKeys(uid || undefined);
+    const existing = this.getJobApplications(uid || undefined);
+    const updated = existing.filter((a) => a.id !== appId);
+    localStorage.setItem(keys.APPLICATIONS, JSON.stringify(updated));
+
+    const client = getSupabaseClient();
+    if (client && uid) {
+      try {
+        await client.from('job_applications').delete().eq('id', appId).eq('user_id', uid);
+      } catch (e) {
+        console.warn('Supabase delete application error:', e);
+      }
+    }
+  },
+
+  async fetchJobApplicationsFromRemote(userId?: string): Promise<JobApplication[] | null> {
+    const uid = userId || this.activeUserId;
+    const client = getSupabaseClient();
+    if (!client || !uid) return null;
+
+    try {
+      const { data, error } = await client
+        .from('job_applications')
+        .select('*')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Supabase fetch applications error:', error);
+        return null;
+      }
+
+      if (data && Array.isArray(data)) {
+        return data.map((row) => ({
+          id: row.id,
+          company: row.company,
+          role: row.role,
+          location: row.location || 'Remote',
+          salary: row.salary_range || '$150,000 - $185,000',
+          status: row.status as any,
+          fitScore: row.fit_score ?? 70,
+          jobUrl: row.job_url || '#',
+          nextAction: row.next_action || '',
+          followUpDate: row.follow_up_date || '',
+          notes: row.notes || '',
+          dateAdded: row.created_at ? row.created_at.split('T')[0] : new Date().toISOString().split('T')[0]
+        }));
+      }
+      return null;
+    } catch (e) {
+      console.warn('Failed to fetch applications from Supabase:', e);
+      return null;
+    }
+  },
+
   getJobApplications(userId?: string): JobApplication[] {
     const keys = this.getStorageKeys(userId);
     const raw = localStorage.getItem(keys.APPLICATIONS);
@@ -240,8 +297,19 @@ export const storageService = {
     return raw ? JSON.parse(raw) : {};
   },
 
-  // Reset/Clear Pivot Session for the user
+  // Reset/Clear Pivot Session for the user (retains historical job applications CRM)
   clearPivotData(userId?: string): void {
+    const keys = this.getStorageKeys(userId);
+    localStorage.removeItem(keys.DIAGNOSIS);
+    localStorage.removeItem(keys.SPRINT_PLAN);
+    localStorage.removeItem(keys.INTERVIEWS);
+    // Preserved: keys.APPLICATIONS is intentionally kept so candidate's job tracking history is never lost!
+    localStorage.removeItem(keys.QUESTIONS);
+    localStorage.removeItem(keys.ANSWERS);
+  },
+
+  // Clear all data including job applications (only for explicit Settings factory reset)
+  clearAllData(userId?: string): void {
     const keys = this.getStorageKeys(userId);
     localStorage.removeItem(keys.DIAGNOSIS);
     localStorage.removeItem(keys.SPRINT_PLAN);

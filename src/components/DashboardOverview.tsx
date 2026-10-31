@@ -89,7 +89,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <span>Target Role Analysis</span>
             </div>
             <p className="text-xs text-slate-300 max-w-xs">
-              Want to evaluate a different resume or another job description? Start a new forensic evaluation.
+              Evaluate another job description or resume. All your previously tracked job applications are automatically preserved.
             </p>
             <div className="flex items-center space-x-2 pt-1">
               <button

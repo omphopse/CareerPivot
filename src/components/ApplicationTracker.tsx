@@ -21,6 +21,7 @@ import { JobApplication, ApplicationStatus } from '../types';
 interface ApplicationTrackerProps {
   applications: JobApplication[];
   onUpdateApplications: (apps: JobApplication[]) => void;
+  onDeleteApplication?: (appId: string) => void;
 }
 
 const STATUS_COLUMNS: { id: ApplicationStatus; label: string; color: string; bg: string }[] = [
@@ -33,7 +34,8 @@ const STATUS_COLUMNS: { id: ApplicationStatus; label: string; color: string; bg:
 
 export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
   applications,
-  onUpdateApplications
+  onUpdateApplications,
+  onDeleteApplication
 }) => {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
@@ -61,8 +63,12 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
 
   const handleDelete = (appId: string) => {
     if (confirm('Delete this job application entry?')) {
-      const updated = applications.filter((app) => app.id !== appId);
-      onUpdateApplications(updated);
+      if (onDeleteApplication) {
+        onDeleteApplication(appId);
+      } else {
+        const updated = applications.filter((app) => app.id !== appId);
+        onUpdateApplications(updated);
+      }
     }
   };
 
