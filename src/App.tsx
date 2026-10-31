@@ -162,7 +162,7 @@ export function App() {
     try {
       // Step 1: Forensic Career Diagnosis
       setAnalyzingStep('1/4: Gemini is forensically auditing resume evidence against JD...');
-      const diagResult = await aiService.analyzeRoleFit(resume, jd);
+      const diagResult = await aiService.analyzeRoleFit(resume, jd, manualRole, manualCompany);
 
       if (manualRole) diagResult.targetRole = manualRole;
       if (manualCompany) diagResult.targetCompany = manualCompany;
@@ -188,14 +188,14 @@ export function App() {
       setAnalyzingStep('4/4: Updating your job application pipeline CRM...');
       const initialApp: JobApplication = {
         id: `app-${Date.now()}`,
-        company: diagResult.targetCompany || 'Target Employer',
-        role: diagResult.targetRole || 'Target Role',
-        location: 'Remote / Hybrid',
-        salary: '$150,000 - $185,000',
+        company: diagResult.targetCompany || manualCompany || 'Target Employer',
+        role: diagResult.targetRole || manualRole || 'Target Role',
+        location: diagResult.location || 'Remote / Hybrid',
+        salary: diagResult.salary || 'Competitive',
         status: 'applied',
         fitScore: diagResult.roleFitScore,
         jobUrl: '#',
-        nextAction: `Complete Day 1 sprint milestones for ${diagResult.targetRole}`,
+        nextAction: `Complete Day 1 sprint milestones for ${diagResult.targetRole || manualRole || 'Target Role'}`,
         followUpDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
         notes: `AI Fit Score: ${diagResult.roleFitScore}%. Focus on closing ${diagResult.gapSkills.length} identified gaps.`,
         dateAdded: new Date().toISOString().split('T')[0]
@@ -409,7 +409,7 @@ export function App() {
         {activeTab === 'diagnosis' && (
           <CareerDiagnosis
             diagnosis={diagnosis}
-            onAnalyze={async (r, j) => handleStartAnalysis(r, j)}
+            onAnalyze={async (r, j, mr, mc) => handleStartAnalysis(r, j, mr, mc)}
             onNavigateToSprint={() => setActiveTab('sprint')}
             isAnalyzing={isAnalyzing}
           />

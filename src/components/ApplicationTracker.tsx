@@ -44,10 +44,10 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
   const [formData, setFormData] = useState<Partial<JobApplication>>({
     company: '',
     role: '',
-    location: 'Remote',
-    salary: '$160,000 - $180,000',
+    location: '',
+    salary: '',
     status: 'applied',
-    fitScore: 70,
+    fitScore: 75,
     jobUrl: '',
     nextAction: '',
     followUpDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
@@ -74,16 +74,16 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
 
   const handleCreateApplication = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.company || !formData.role) return;
+    if (!formData.company?.trim() || !formData.role?.trim()) return;
 
     const newApp: JobApplication = {
       id: `app-${Date.now()}`,
-      company: formData.company || 'Company',
-      role: formData.role || 'Senior Backend Engineer',
-      location: formData.location || 'Remote',
-      salary: formData.salary || '$150k - $170k',
+      company: formData.company.trim(),
+      role: formData.role.trim(),
+      location: formData.location?.trim() || 'Remote / Hybrid',
+      salary: formData.salary?.trim() || 'Market Rate',
       status: (formData.status as ApplicationStatus) || 'applied',
-      fitScore: formData.fitScore || 70,
+      fitScore: formData.fitScore || 75,
       jobUrl: formData.jobUrl || '#',
       nextAction: formData.nextAction || 'Follow up with recruiter',
       followUpDate: formData.followUpDate || '',
@@ -96,10 +96,10 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
     setFormData({
       company: '',
       role: '',
-      location: 'Remote',
-      salary: '$160,000 - $180,000',
+      location: '',
+      salary: '',
       status: 'applied',
-      fitScore: 70,
+      fitScore: 75,
       jobUrl: '',
       nextAction: '',
       followUpDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],

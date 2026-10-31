@@ -18,7 +18,7 @@ import {
 import { CareerDiagnosisResult, SkillItem, StrengthLevel } from '../types';
 interface CareerDiagnosisProps {
   diagnosis: CareerDiagnosisResult;
-  onAnalyze: (resume: string, jd: string) => Promise<void>;
+  onAnalyze: (resume: string, jd: string, manualRole?: string, manualCompany?: string) => Promise<void>;
   onNavigateToSprint: () => void;
   isAnalyzing: boolean;
 }
@@ -32,6 +32,8 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
   const [activeTab, setActiveTab] = useState<'results' | 'input'>('results');
   const [resumeText, setResumeText] = useState('');
   const [jdText, setJdText] = useState('');
+  const [targetRole, setTargetRole] = useState('');
+  const [targetCompany, setTargetCompany] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'match' | 'gap' | 'weak'>('all');
   const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null);
 
@@ -40,7 +42,12 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
       alert('Please provide both resume text and job description.');
       return;
     }
-    await onAnalyze(resumeText, jdText);
+    await onAnalyze(
+      resumeText,
+      jdText,
+      targetRole.trim() || undefined,
+      targetCompany.trim() || undefined
+    );
     setActiveTab('results');
   };
 
@@ -143,6 +150,29 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
             </div>
           </div>
 
+          {/* Optional Role & Company overrides */}
+          <div className="pt-2 border-t border-slate-800">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+              Target Position Details (Optional — AI will auto-extract if left blank)
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="Target Role (e.g. Senior Java Backend Engineer)"
+                value={targetRole}
+                onChange={(e) => setTargetRole(e.target.value)}
+                className="px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              />
+              <input
+                type="text"
+                placeholder="Target Company (e.g. GoKwik, Stripe, Apex)"
+                value={targetCompany}
+                onChange={(e) => setTargetCompany(e.target.value)}
+                className="px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
           <div className="flex justify-end pt-2">
             <button
               onClick={handleStartAnalysis}
@@ -207,6 +237,20 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
                     <span className="text-slate-600">•</span>
                     <span className="text-amber-400 font-semibold">{diagnosis.gapPercentage}% Gap</span>
                   </div>
+                  {(diagnosis.location || diagnosis.salary) && (
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] pt-1">
+                      {diagnosis.location && (
+                        <span className="px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-300 font-medium">
+                          📍 {diagnosis.location}
+                        </span>
+                      )}
+                      {diagnosis.salary && (
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 font-semibold">
+                          💰 {diagnosis.salary}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

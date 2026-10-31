@@ -36,6 +36,8 @@ export interface CareerDiagnosisResult {
   gapSkills: SkillItem[];
   weakEvidenceSkills: SkillItem[];
   interviewFocusAreas: InterviewFocusArea[];
+  salary?: string;
+  location?: string;
 }
 
 export interface SprintTask {

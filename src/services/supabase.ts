@@ -153,13 +153,16 @@ export const storageService = {
     const keys = this.getStorageKeys(uid || undefined);
     localStorage.setItem(keys.INTERVIEWS, JSON.stringify(updated));
 
+    const currentDiag = this.getDiagnosis(uid || undefined);
+    const targetRole = currentDiag?.targetRole || 'Technical Interview Practice';
+
     const client = getSupabaseClient();
     if (client) {
       try {
         await client.from('mock_interviews').upsert({
           id: evaluation.id,
           user_id: uid,
-          target_role: 'Senior Java Backend Engineer',
+          target_role: targetRole,
           question_text: evaluation.questionText,
           category: 'Interview Practice',
           user_answer: evaluation.userAnswer,
