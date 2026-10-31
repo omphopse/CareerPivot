@@ -267,22 +267,132 @@ export function App() {
       const evaluation = await aiService.evaluateInterviewAnswer(question, answer);
       evaluation.questionId = question.id;
 
+      // 1. Generate updated question specifically for this question's slot
+      const existingTexts = questions.map((q) => q.question);
+      const newQuestion = await aiService.generateSingleInterviewQuestion(
+        diagnosis?.targetRole || question.role || 'Target Role',
+        diagnosis?.gapSkills || [],
+        existingTexts,
+        question.category
+      );
+
+      newQuestion.previousQuestion = {
+        id: question.id,
+        question: question.question,
+        context: question.context,
+        userAnswer: answer
+      };
+      newQuestion.isUpdated = true;
+      newQuestion.round = (question.round || 1) + 1;
+
+      // 2. Update ONLY this question in the questions array, leaving other questions untouched
+      const updatedQuestions = questions.map((q) => (q.id === question.id ? newQuestion : q));
+      setQuestions(updatedQuestions);
+      storageService.saveInterviewQuestions(updatedQuestions, currentUser?.id);
+
+      // 3. Link evaluation to both question IDs so feedback is immediately visible
       setEvaluationsByQuestionId((prev) => ({
         ...prev,
-        [question.id]: evaluation
+        [question.id]: evaluation,
+        [newQuestion.id]: evaluation
       }));
 
       await storageService.saveInterviewEvaluation(evaluation, currentUser?.id);
 
       if (evaluation.score < 60) {
-        showToast(`AI Graded: ${evaluation.score}/100. Weakness flagged! Click 'Sync Weakness & Extend Sprint'`);
+        showToast(`AI Graded: ${evaluation.score}/100. Question updated with remedial follow-up!`);
       } else {
-        showToast(`AI Graded: ${evaluation.score}/100. Strong performance!`);
+        showToast(`AI Graded: ${evaluation.score}/100. Strong answer! Updated question loaded for this slot.`);
       }
     } catch (err: any) {
       showToast(`Evaluation error for ${question.id}: ${err?.message || 'Failed to grade response'}`);
     } finally {
       setEvaluatingQuestionIds((prev) => prev.filter((id) => id !== question.id));
+    }
+  };
+
+  const handleUpdateQuestion = async (questionId: string) => {
+    const qIndex = questions.findIndex((q) => q.id === questionId);
+    if (qIndex === -1) return;
+    const targetQ = questions[qIndex];
+    setEvaluatingQuestionIds((prev) => (prev.includes(questionId) ? prev : [...prev, questionId]));
+
+    try {
+      const existingTexts = questions.map((q) => q.question);
+      const newQuestion = await aiService.generateSingleInterviewQuestion(
+        diagnosis?.targetRole || targetQ.role || 'Target Role',
+        diagnosis?.gapSkills || [],
+        existingTexts,
+        targetQ.category
+      );
+      newQuestion.previousQuestion = {
+        id: targetQ.id,
+        question: targetQ.question,
+        context: targetQ.context,
+        userAnswer: answersByQuestionId[targetQ.id]
+      };
+      newQuestion.isUpdated = true;
+      newQuestion.round = (targetQ.round || 1) + 1;
+
+      const updated = questions.map((q) => (q.id === questionId ? newQuestion : q));
+      setQuestions(updated);
+      storageService.saveInterviewQuestions(updated, currentUser?.id);
+
+      if (evaluationsByQuestionId[questionId]) {
+        setEvaluationsByQuestionId((prev) => ({
+          ...prev,
+          [newQuestion.id]: prev[questionId]
+        }));
+      }
+
+      showToast(`⚡ Question ${qIndex + 1} updated with a fresh technical question!`);
+    } catch (err) {
+      showToast('Failed to update question');
+    } finally {
+      setEvaluatingQuestionIds((prev) => prev.filter((id) => id !== questionId));
+    }
+  };
+
+  const handleUpdateAllQuestions = async () => {
+    if (questions.length === 0) return;
+    showToast('Regenerating all 3 interview questions with fresh scenarios...');
+
+    try {
+      const newQuestions = await aiService.generateRoleInterviewQuestions(
+        diagnosis?.targetRole || 'Target Role',
+        diagnosis?.gapSkills || [],
+        diagnosis?.interviewFocusAreas || []
+      );
+      const marked = newQuestions.map((q, idx) => ({
+        ...q,
+        isUpdated: true,
+        round: (questions[idx]?.round || 1) + 1,
+        previousQuestion: questions[idx]
+          ? {
+              id: questions[idx].id,
+              question: questions[idx].question,
+              context: questions[idx].context,
+              userAnswer: answersByQuestionId[questions[idx].id]
+            }
+          : undefined
+      }));
+
+      setQuestions(marked);
+      storageService.saveInterviewQuestions(marked, currentUser?.id);
+
+      setEvaluationsByQuestionId((prev) => {
+        const nextMap = { ...prev };
+        marked.forEach((mq, idx) => {
+          if (questions[idx] && prev[questions[idx].id]) {
+            nextMap[mq.id] = prev[questions[idx].id];
+          }
+        });
+        return nextMap;
+      });
+
+      showToast('⚡ All 3 interview questions updated for your next round!');
+    } catch (err) {
+      showToast('Failed to regenerate interview questions');
     }
   };
 
@@ -434,6 +544,8 @@ export function App() {
             onEvaluateAnswer={handleEvaluateAnswer}
             onRecalibrateSprintPlan={handleRecalibrateSprintPlan}
             onNavigateToSprint={() => setActiveTab('sprint')}
+            onUpdateQuestion={handleUpdateQuestion}
+            onUpdateAllQuestions={handleUpdateAllQuestions}
           />
         )}
 

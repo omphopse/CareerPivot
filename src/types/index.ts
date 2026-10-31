@@ -101,6 +101,14 @@ export interface InterviewQuestion {
   question: string;
   context: string;
   keyPointsExpected: string[];
+  previousQuestion?: {
+    id: string;
+    question: string;
+    context: string;
+    userAnswer?: string;
+  };
+  round?: number;
+  isUpdated?: boolean;
 }
 
 export interface RubricBreakdown {

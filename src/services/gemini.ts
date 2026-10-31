@@ -356,6 +356,52 @@ Return ONLY valid JSON matching this schema:
       return generateSyntheticInterviewQuestions(targetRole, gapSkills);
     }
   },
+  /**
+   * 3.b Generate a single updated technical interview question for a specific slot
+   */
+  async generateSingleInterviewQuestion(
+    targetRole: string,
+    gapSkills: SkillItem[],
+    excludeQuestionTexts: string[] = [],
+    categoryHint?: string
+  ): Promise<InterviewQuestion> {
+    const apiKey = getGeminiApiKey();
+
+    if (apiKey) {
+      try {
+        const systemInstruction = `You are a Principal Engineer and Bar Raiser Interviewer.
+Generate 1 new, challenging, realistic technical interview question for a candidate targeting: ${targetRole}.
+Focus on: ${categoryHint || gapSkills.map((g) => g.skill).join(', ') || 'production architecture'}.
+DO NOT repeat any of these existing questions:
+${excludeQuestionTexts.slice(0, 8).map((q) => `- ${q}`).join('\n')}
+Return ONLY a valid JSON object matching this schema:
+{
+  "role": "${targetRole}",
+  "category": string,
+  "difficulty": "Mid" | "Senior" | "Lead",
+  "question": string,
+  "context": string,
+  "keyPointsExpected": [string, string, string, string]
+}`;
+        const prompt = `Generate 1 fresh, targeted technical interview question for ${targetRole}. Focus on ${categoryHint || 'production engineering'}.`;
+        const rawJson = await callGemini(prompt, systemInstruction);
+        const parsed = JSON.parse(rawJson);
+        if (parsed && parsed.question) {
+          return {
+            ...parsed,
+            id: parsed.id || `iq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            isUpdated: true,
+            round: 2
+          };
+        }
+      } catch (err) {
+        console.warn('Gemini single question generation error, falling back:', err);
+      }
+    }
+
+    return generateSyntheticSingleQuestion(targetRole, gapSkills, excludeQuestionTexts, categoryHint);
+  },
+
 
   /**
    * 4. AI Interview Coach: Evaluate candidate's real answer with consistent rubrics
@@ -1063,10 +1109,10 @@ function generateSyntheticSprintPlan(
   };
 }
 
-function generateSyntheticInterviewQuestions(
+function getRoleQuestionBank(
   targetRole: string,
   gapSkills: SkillItem[]
-): InterviewQuestion[] {
+): Omit<InterviewQuestion, 'id'>[] {
   const roleLower = targetRole.toLowerCase();
   const primaryGap = gapSkills[0]?.skill || 'Core Technical Problem Solving';
   const secondaryGap = gapSkills[1]?.skill || 'System Resilience & Reliability';
@@ -1074,7 +1120,6 @@ function generateSyntheticInterviewQuestions(
   if (roleLower.includes('customer') || roleLower.includes('support') || roleLower.includes('integration') || roleLower.includes('solutions')) {
     return [
       {
-        id: `iq-${Date.now()}-1`,
         role: targetRole,
         category: 'Webhook & API Troubleshooting',
         difficulty: 'Mid',
@@ -1088,7 +1133,6 @@ function generateSyntheticInterviewQuestions(
         ]
       },
       {
-        id: `iq-${Date.now()}-2`,
         role: targetRole,
         category: primaryGap,
         difficulty: 'Mid',
@@ -1102,7 +1146,6 @@ function generateSyntheticInterviewQuestions(
         ]
       },
       {
-        id: `iq-${Date.now()}-3`,
         role: targetRole,
         category: 'Incident Management & Cross-Functional Triage',
         difficulty: 'Senior',
@@ -1114,6 +1157,45 @@ function generateSyntheticInterviewQuestions(
           'Gather telemetry and reproducible error samples for core engineering to accelerate fix deployment',
           'Conduct post-mortem root cause analysis (RCA) and publish preventive preventative measures'
         ]
+      },
+      {
+        role: targetRole,
+        category: 'API Rate Limiting & Backpressure',
+        difficulty: 'Mid',
+        question: 'An enterprise client experiences frequent HTTP 429 Too Many Requests errors during batch uploads. How do you analyze their traffic pattern and guide them to implement client-side rate limiting and jittered retries?',
+        context: 'Evaluates HTTP headers understanding (Retry-After, RateLimit-Limit), throttling algorithms, and client developer advisory skills.',
+        keyPointsExpected: [
+          'Analyze 429 error frequency and peak throughput headers in API gateway logs',
+          'Guide the merchant to implement exponential backoff with randomized jitter',
+          'Recommend chunking bulk payloads or utilizing asynchronous batch upload endpoints',
+          'Propose temporary rate limit increases if justified by merchant SLA tier'
+        ]
+      },
+      {
+        role: targetRole,
+        category: 'Webhook Security & Cryptographic Signatures',
+        difficulty: 'Senior',
+        question: 'How do you implement and verify HMAC SHA-256 signature headers on outbound webhook notifications to protect merchants from replay attacks and payload tampering?',
+        context: 'Evaluates cryptographic signature verification, secret key rotation, and replay prevention mechanisms.',
+        keyPointsExpected: [
+          'Compute HMAC SHA-256 digest of request body combined with timestamp using shared merchant secret',
+          'Send timestamp header to enforce strict replay tolerance window (e.g. 5 minutes)',
+          'Implement constant-time string comparison to prevent timing attack vulnerabilities',
+          'Provide clear developer documentation and SDK helper functions for signature verification'
+        ]
+      },
+      {
+        role: targetRole,
+        category: 'API Versioning & Backwards Compatibility',
+        difficulty: 'Senior',
+        question: 'When deprecating an older REST API version used by hundreds of live merchants, what strategy do you deploy to ensure zero-downtime migration without breaking legacy client integrations?',
+        context: 'Tests API lifecycle management, deprecation headers, migration documentation, and merchant communication.',
+        keyPointsExpected: [
+          'Include Sunset and Deprecation HTTP response headers with documentation links',
+          'Provide dual-version routing or middleware translation shims during migration transition',
+          'Identify at-risk merchants through access logs and proactively reach out with migration guides',
+          'Run automated synthetic canary tests against deprecated and new versions'
+        ]
       }
     ];
   }
@@ -1121,7 +1203,6 @@ function generateSyntheticInterviewQuestions(
   if (roleLower.includes('frontend') || roleLower.includes('react') || roleLower.includes('ui') || roleLower.includes('web')) {
     return [
       {
-        id: `iq-${Date.now()}-1`,
         role: targetRole,
         category: 'State Management & Re-render Optimization',
         difficulty: 'Mid',
@@ -1135,7 +1216,6 @@ function generateSyntheticInterviewQuestions(
         ]
       },
       {
-        id: `iq-${Date.now()}-2`,
         role: targetRole,
         category: primaryGap,
         difficulty: 'Senior',
@@ -1149,7 +1229,6 @@ function generateSyntheticInterviewQuestions(
         ]
       },
       {
-        id: `iq-${Date.now()}-3`,
         role: targetRole,
         category: 'Web Performance & Core Web Vitals',
         difficulty: 'Senior',
@@ -1161,13 +1240,39 @@ function generateSyntheticInterviewQuestions(
           'Avoiding layout shift by reserving dimensions for images and ads (CLS)',
           'Minimizing main thread execution time to improve Interaction to Next Paint (INP)'
         ]
+      },
+      {
+        role: targetRole,
+        category: 'Component Architecture & TypeScript Generics',
+        difficulty: 'Senior',
+        question: 'How would you architect a reusable, type-safe data table component in React supporting multi-column sorting, row filtering, pagination, and virtual scrolling?',
+        context: 'Tests clean component composition, strict TypeScript generics, and rendering scalability.',
+        keyPointsExpected: [
+          'Compound component pattern or headless hook architecture (e.g. TanStack Table)',
+          'Strict TypeScript generics ensuring column accessor keys map type-safely to data row models',
+          'Virtualization via react-window to maintain fixed 60fps scrolling under 100k rows',
+          'Decoupled UI styling from table state management'
+        ]
+      },
+      {
+        role: targetRole,
+        category: 'Web Security & Authentication State',
+        difficulty: 'Senior',
+        question: 'How do you safeguard a Single Page Application against XSS, CSRF, and token theft when handling user session tokens and sensitive client state?',
+        context: 'Evaluates modern web application security, HTTP-only cookie vs memory storage, and Content Security Policy (CSP).',
+        keyPointsExpected: [
+          'Store refresh tokens in HttpOnly, SameSite=Strict cookies to eliminate JavaScript token access',
+          'Keep short-lived access tokens in application memory rather than localStorage',
+          'Configure a strict Content Security Policy (CSP) blocking inline script execution and unauthorized origins',
+          'Sanitize all dynamic user input using DOMPurify before dangerously setting HTML'
+        ]
       }
     ];
   }
 
+  // Backend / Full Stack / General Software Engineering
   return [
     {
-      id: `iq-${Date.now()}-1`,
       role: targetRole,
       category: primaryGap,
       difficulty: 'Senior',
@@ -1181,7 +1286,6 @@ function generateSyntheticInterviewQuestions(
       ]
     },
     {
-      id: `iq-${Date.now()}-2`,
       role: targetRole,
       category: secondaryGap,
       difficulty: 'Senior',
@@ -1195,7 +1299,6 @@ function generateSyntheticInterviewQuestions(
       ]
     },
     {
-      id: `iq-${Date.now()}-3`,
       role: targetRole,
       category: 'System Design & Failure Resilience',
       difficulty: 'Senior',
@@ -1207,8 +1310,87 @@ function generateSyntheticInterviewQuestions(
         'Token bucket or leaky bucket rate limiting with HTTP 429 backpressure',
         'Graceful degradation with cached stale data or fallback defaults'
       ]
+    },
+    {
+      role: targetRole,
+      category: 'Distributed Transactions & Event Consistency',
+      difficulty: 'Lead',
+      question: 'How do you implement the Transactional Outbox Pattern with an event broker (like Kafka or RabbitMQ) to guarantee at-least-once message delivery without two-phase commit (2PC)?',
+      context: 'Evaluates dual-write prevention, Change Data Capture (Debezium), and idempotent event consumers.',
+      keyPointsExpected: [
+        'Write domain state and outbox event payload inside the same local database ACID transaction',
+        'Use a background transaction-log poller or CDC engine (Debezium) to publish outbox events to the message broker',
+        'Acknowledge message offset only after successful event processing on the consumer side',
+        'Enforce consumer idempotency with deduplication tables or unique business event IDs'
+      ]
+    },
+    {
+      role: targetRole,
+      category: 'API Idempotency & Payment Processing',
+      difficulty: 'Senior',
+      question: 'How do you design an idempotent payment charging endpoint that safely handles concurrent identical client retries without double-charging or creating deadlock?',
+      context: 'Tests Idempotency-Key header design, atomic cache locks, and state machine transitions.',
+      keyPointsExpected: [
+        'Require client-supplied Idempotency-Key header stored in Redis with short-term lock TTL',
+        'Check idempotency cache: return in-progress status (409) if concurrent request is still processing',
+        'Save final response payload in cache with 24h retention so retries receive identical responses',
+        'Implement database unique constraints on payment intent reference numbers'
+      ]
+    },
+    {
+      role: targetRole,
+      category: 'Zero-Downtime Database Migrations',
+      difficulty: 'Senior',
+      question: 'How do you alter a high-throughput relational database table with 200M rows to rename a column and modify data types without incurring table locks or downtime?',
+      context: 'Tests Expand/Contract migration pattern, dual-writing, backfilling, and zero-downtime deployments.',
+      keyPointsExpected: [
+        'Step 1: Add new nullable column without touching existing column',
+        'Step 2: Deploy code dual-writing to both old and new columns, reading from old column',
+        'Step 3: Run asynchronous backfill job in batches to populate new column for historical rows',
+        'Step 4: Switch code to read from new column, then safely remove old column in final deploy'
+      ]
     }
   ];
+}
+
+function generateSyntheticInterviewQuestions(
+  targetRole: string,
+  gapSkills: SkillItem[]
+): InterviewQuestion[] {
+  const bank = getRoleQuestionBank(targetRole, gapSkills);
+  return bank.slice(0, 3).map((q, idx) => ({
+    ...q,
+    id: `iq-${Date.now()}-${idx + 1}`,
+    round: 1
+  }));
+}
+
+function generateSyntheticSingleQuestion(
+  targetRole: string,
+  gapSkills: SkillItem[],
+  excludeTexts: string[] = [],
+  categoryHint?: string
+): InterviewQuestion {
+  const bank = getRoleQuestionBank(targetRole, gapSkills);
+
+  // Find a question from bank that is not already in excludeTexts
+  const unused = bank.filter((item) => {
+    return !excludeTexts.some((ex) =>
+      ex && (
+        ex.toLowerCase().includes(item.question.slice(0, 35).toLowerCase()) ||
+        item.question.toLowerCase().includes(ex.slice(0, 35).toLowerCase())
+      )
+    );
+  });
+
+  const base = unused.length > 0 ? unused[0] : bank[Math.floor(Math.random() * bank.length)];
+
+  return {
+    ...base,
+    id: `iq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    isUpdated: true,
+    round: 2
+  };
 }
 
 function generateSyntheticEvaluation(

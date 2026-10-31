@@ -33,6 +33,8 @@ interface InterviewCoachProps {
   onEvaluateAnswer: (question: InterviewQuestion, answer: string) => Promise<void>;
   onRecalibrateSprintPlan: (evaluation: InterviewEvaluation) => void;
   onNavigateToSprint: () => void;
+  onUpdateQuestion?: (questionId: string) => Promise<void>;
+  onUpdateAllQuestions?: () => Promise<void>;
 }
 
 export const InterviewCoach: React.FC<InterviewCoachProps> = ({
@@ -44,7 +46,9 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
   onUpdateAnswer,
   onEvaluateAnswer,
   onRecalibrateSprintPlan,
-  onNavigateToSprint
+  onNavigateToSprint,
+  onUpdateQuestion,
+  onUpdateAllQuestions
 }) => {
   const activeQuestions = questions && questions.length > 0 ? questions : [
     {
@@ -63,15 +67,41 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
     }
   ];
 
-  const [selectedQuestionId, setSelectedQuestionId] = useState<string>(activeQuestions[0].id);
+  const [selectedSlotIndex, setSelectedSlotIndex] = useState<number>(0);
+  const [showPreviousForSlot, setShowPreviousForSlot] = useState<Record<number, boolean>>({});
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [showExpectedPoints, setShowExpectedPoints] = useState<boolean>(false);
   const [recalibratedSuccess, setRecalibratedSuccess] = useState<boolean>(false);
 
-  const currentQ = activeQuestions.find((q) => q.id === selectedQuestionId) || activeQuestions[0];
+  const safeIndex = selectedSlotIndex < activeQuestions.length ? selectedSlotIndex : 0;
+  const currentQ = activeQuestions[safeIndex];
   const isCurrentEvaluating = evaluatingQuestionIds.includes(currentQ.id);
-  const currentEvaluation = evaluationsByQuestionId[currentQ.id] || null;
+
+  // Link evaluation: check either currentQ.id or previousQuestion.id
+  const currentEvaluation =
+    evaluationsByQuestionId[currentQ.id] ||
+    (currentQ.previousQuestion ? evaluationsByQuestionId[currentQ.previousQuestion.id] : null);
+
   const currentAnswer = answersByQuestionId[currentQ.id] || '';
+  const isShowingPrevious = Boolean(showPreviousForSlot[safeIndex] && currentQ.previousQuestion);
+  const displayedQuestion = isShowingPrevious && currentQ.previousQuestion
+    ? {
+        role: currentQ.role,
+        category: currentQ.category,
+        difficulty: currentQ.difficulty,
+        question: currentQ.previousQuestion.question,
+        context: currentQ.previousQuestion.context,
+        keyPointsExpected: currentQ.keyPointsExpected
+      }
+    : currentQ;
+
+  const allThreeAnswered =
+    activeQuestions.length >= 3 &&
+    activeQuestions.every(
+      (q) =>
+        evaluationsByQuestionId[q.id] ||
+        (q.previousQuestion && evaluationsByQuestionId[q.previousQuestion.id])
+    );
 
   // Web Speech API dictation
   const handleToggleDictation = () => {
@@ -121,6 +151,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
       return;
     }
     setRecalibratedSuccess(false);
+    setShowPreviousForSlot((prev) => ({ ...prev, [safeIndex]: false }));
     await onEvaluateAnswer(currentQ, currentAnswer.trim());
   };
 
@@ -142,7 +173,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
             <span>AI Technical Interview Coach & Rubric Evaluator</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Questions generated for {sprintPlan.targetRole}. Each question maintains its own independent evaluation.
+            Questions generated for {sprintPlan.targetRole}. Each answered question dynamically updates with a new technical scenario.
           </p>
         </div>
 
@@ -150,23 +181,31 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
         <div className="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0">
           {activeQuestions.map((q, idx) => {
             const isEvaluatingThis = evaluatingQuestionIds.includes(q.id);
-            const hasEval = Boolean(evaluationsByQuestionId[q.id]);
-            const evalScore = evaluationsByQuestionId[q.id]?.score;
+            const evalObj =
+              evaluationsByQuestionId[q.id] ||
+              (q.previousQuestion ? evaluationsByQuestionId[q.previousQuestion.id] : null);
+            const hasEval = Boolean(evalObj);
+            const evalScore = evalObj?.score;
 
             return (
               <button
                 key={q.id || idx}
                 onClick={() => {
-                  setSelectedQuestionId(q.id);
+                  setSelectedSlotIndex(idx);
                   setRecalibratedSuccess(false);
                 }}
                 className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  selectedQuestionId === q.id
+                  safeIndex === idx
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
                 }`}
               >
                 <span>Q{idx + 1}</span>
+                {q.isUpdated && (
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-emerald-400/20 text-emerald-300">
+                    R{q.round || 2}
+                  </span>
+                )}
                 {isEvaluatingThis && (
                   <RefreshCw className="w-3 h-3 text-amber-300 animate-spin" />
                 )}
@@ -186,8 +225,47 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
               </button>
             );
           })}
+
+          {onUpdateAllQuestions && (
+            <button
+              onClick={onUpdateAllQuestions}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 cursor-pointer"
+              title="Update all 3 questions with brand new technical scenarios"
+            >
+              <RefreshCw className="w-3 h-3 text-cyan-400" />
+              <span>Update All 3</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Celebration Banner when all 3 questions have been evaluated */}
+      {allThreeAnswered && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-indigo-950/70 to-slate-900 border border-emerald-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-fadeIn shadow-lg">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0">
+              <Award className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">
+                All 3 Interview Questions Answered & Updated!
+              </h4>
+              <p className="text-xs text-slate-300">
+                All 3 questions have been updated with new technical challenges for your next round of practice.
+              </p>
+            </div>
+          </div>
+          {onUpdateAllQuestions && (
+            <button
+              onClick={onUpdateAllQuestions}
+              className="px-4 py-2 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 flex items-center space-x-1.5 shrink-0 cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Start Round 2 (Update All 3)</span>
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left 6 Cols: Question Card & Answer Input */}
@@ -197,20 +275,64 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 border border-indigo-500/30 text-indigo-300">
-                  {currentQ.difficulty.toUpperCase()} LEVEL
+                  {displayedQuestion.difficulty.toUpperCase()} LEVEL
                 </span>
-                <span className="text-xs text-slate-400 font-medium">{currentQ.category}</span>
+                <span className="text-xs text-slate-400 font-medium">{displayedQuestion.category}</span>
+                {currentQ.isUpdated && !isShowingPrevious && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center space-x-1">
+                    <Sparkles className="w-3 h-3 text-emerald-400" />
+                    <span>Updated Question (Round {currentQ.round || 2})</span>
+                  </span>
+                )}
               </div>
-              <span className="text-[11px] text-cyan-400 font-semibold">{currentQ.role}</span>
+
+              <div className="flex items-center space-x-2">
+                {onUpdateQuestion && !isCurrentEvaluating && (
+                  <button
+                    onClick={() => onUpdateQuestion(currentQ.id)}
+                    className="text-[11px] text-slate-400 hover:text-indigo-300 flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 transition-colors cursor-pointer"
+                    title="Generate a fresh technical question for this slot"
+                  >
+                    <RefreshCw className="w-3 h-3 text-indigo-400" />
+                    <span>Update Q{safeIndex + 1}</span>
+                  </button>
+                )}
+                <span className="text-[11px] text-cyan-400 font-semibold">{displayedQuestion.role}</span>
+              </div>
             </div>
 
+            {/* Previous Question Notice & Toggle */}
+            {currentQ.previousQuestion && (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-indigo-500/30 text-xs">
+                <span className="text-slate-300 flex items-center space-x-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>
+                    {isShowingPrevious
+                      ? 'Viewing previously evaluated question'
+                      : `Previous question evaluated (${currentEvaluation?.score || 0}/100). Updated question loaded!`}
+                  </span>
+                </span>
+                <button
+                  onClick={() =>
+                    setShowPreviousForSlot((prev) => ({
+                      ...prev,
+                      [safeIndex]: !prev[safeIndex]
+                    }))
+                  }
+                  className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline cursor-pointer shrink-0 ml-2"
+                >
+                  {isShowingPrevious ? 'Back to Updated Question' : 'View Previous Question'}
+                </button>
+              </div>
+            )}
+
             <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
-              {currentQ.question}
+              {displayedQuestion.question}
             </h2>
 
             <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/70 p-3.5 rounded-xl border border-slate-800">
               <strong className="text-amber-400">Context & Scenario: </strong>
-              {currentQ.context}
+              {displayedQuestion.context}
             </p>
 
             {/* Collapsible Key Concepts Hint */}
@@ -226,7 +348,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
 
               {showExpectedPoints && (
                 <ul className="mt-2.5 space-y-1.5 p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300">
-                  {currentQ.keyPointsExpected.map((point, idx) => (
+                  {displayedQuestion.keyPointsExpected.map((point, idx) => (
                     <li key={idx} className="flex items-start space-x-2">
                       <span className="text-indigo-400 mt-0.5">•</span>
                       <span>{point}</span>
@@ -241,7 +363,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
           <div className="glass-panel p-6 rounded-3xl space-y-4 relative">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-1.5">
-                <span>Your Technical Response (Q{activeQuestions.findIndex((q) => q.id === currentQ.id) + 1})</span>
+                <span>Your Technical Response (Q{safeIndex + 1})</span>
               </label>
               <span className="text-[11px] text-slate-500">{currentAnswer.length} characters</span>
             </div>
@@ -292,12 +414,12 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
                 {isCurrentEvaluating ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Grading Q{activeQuestions.findIndex((q) => q.id === currentQ.id) + 1}...</span>
+                    <span>Grading Q{safeIndex + 1}...</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-3.5 h-3.5" />
-                    <span>{currentEvaluation ? 'Re-Evaluate with AI Rubrics' : 'Evaluate with AI Rubrics'}</span>
+                    <span>{currentEvaluation ? 'Submit & Grade Answer' : 'Evaluate with AI Rubrics'}</span>
                   </>
                 )}
               </button>
@@ -314,7 +436,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
                 <RefreshCw className="w-8 h-8 animate-spin" />
               </div>
               <div className="max-w-xs space-y-2">
-                <h3 className="text-base font-bold text-white">Grading Question {activeQuestions.findIndex((q) => q.id === currentQ.id) + 1}</h3>
+                <h3 className="text-base font-bold text-white">Grading Question {safeIndex + 1}</h3>
                 <p className="text-xs text-amber-200">
                   Gemini is evaluating your answer against technical depth, system architecture, clarity, and evidence rubrics.
                 </p>
@@ -330,7 +452,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
               <div className="flex items-start justify-between pb-4 border-b border-slate-800">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    AI Rubric Evaluation for Question {activeQuestions.findIndex((q) => q.id === currentQ.id) + 1}
+                    AI Rubric Evaluation for Question {safeIndex + 1}
                   </span>
                   <div className="flex items-baseline space-x-3 mt-1">
                     <span className="text-3xl sm:text-4xl font-extrabold text-white">
@@ -364,6 +486,28 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
                   <Zap className="w-3.5 h-3.5" />
                   <span>{recalibratedSuccess ? '✓ Sprint Extended!' : 'Sync Weakness & Extend Sprint'}</span>
                 </button>
+              </div>
+
+              {/* Evaluated Question & Submitted Answer Card */}
+              <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
+                <div>
+                  <span className="text-indigo-400 font-bold uppercase tracking-wider text-[10px]">
+                    Evaluated Question
+                  </span>
+                  <p className="text-slate-200 font-medium mt-0.5 leading-snug">
+                    {currentEvaluation.questionText}
+                  </p>
+                </div>
+                {currentEvaluation.userAnswer && (
+                  <div className="pt-2 border-t border-slate-900">
+                    <span className="text-slate-400 font-semibold text-[11px]">
+                      Your Submitted Response:
+                    </span>
+                    <p className="text-slate-300 italic text-[11px] mt-0.5 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 leading-relaxed">
+                      "{currentEvaluation.userAnswer}"
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* 4 Rubric Category Bars */}
@@ -498,7 +642,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
                 <Award className="w-8 h-8" />
               </div>
               <div className="max-w-xs space-y-1.5">
-                <h3 className="text-base font-bold text-white">No Evaluation for Question {activeQuestions.findIndex((q) => q.id === currentQ.id) + 1} Yet</h3>
+                <h3 className="text-base font-bold text-white">No Evaluation for Question {safeIndex + 1} Yet</h3>
                 <p className="text-xs text-slate-400">
                   Type your technical answer on the left or use voice dictation and click <strong className="text-indigo-300">Evaluate with AI Rubrics</strong> to grade this question.
                 </p>
