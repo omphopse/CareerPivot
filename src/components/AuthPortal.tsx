@@ -8,7 +8,6 @@ import {
   Lock,
   CheckCircle2,
   AlertCircle,
-  KeyRound,
   ChevronLeft
 } from 'lucide-react';
 import { authService } from '../services/auth';
@@ -26,7 +25,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
-  const [demoOtp, setDemoOtp] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState(0);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -49,7 +47,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
     }
   }, [step]);
 
-  // Handle Step 1: Send OTP
+  // Handle Step 1: Send OTP via Supabase
   const handleSendEmail = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage(null);
@@ -66,13 +64,10 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
       const res = await authService.sendOtp(clean);
       if (res.success) {
         setInfoMessage(res.message);
-        if (res.demoOtp) {
-          setDemoOtp(res.demoOtp);
-        }
         setStep('otp');
         setResendTimer(30);
       } else {
-        setErrorMessage(res.message || 'Failed to send verification code. Please try again.');
+        setErrorMessage(res.message || 'Failed to send verification code. Please check your Supabase email setup.');
       }
     } catch (err: any) {
       setErrorMessage(err?.message || 'Network error while requesting verification code.');
@@ -124,7 +119,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  // Handle Step 2: Verify OTP
+  // Handle Step 2: Verify OTP via Supabase
   const triggerVerify = async (codeToVerify?: string) => {
     const code = codeToVerify || otpDigits.join('');
     if (code.length < 6) {
@@ -145,20 +140,13 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
         });
         onLoginSuccess(result.session);
       } else {
-        setErrorMessage(result.error || 'Verification code failed. Please check the code.');
+        setErrorMessage(result.error || 'Verification code failed. Please check your email and try again.');
       }
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Error verifying code.');
+      setErrorMessage(err?.message || 'Error verifying code with Supabase.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleUseDemoOtp = () => {
-    if (!demoOtp) return;
-    const digits = demoOtp.split('');
-    setOtpDigits(digits);
-    triggerVerify(demoOtp);
   };
 
   return (
@@ -181,7 +169,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
           <p className="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto">
             {step === 'email'
               ? 'Private, authenticated access to your forensic AI career diagnosis, adaptive sprint roadmap, and mock coach.'
-              : `We sent a 6-digit verification code to ${email}`}
+              : `We sent a 6-digit verification code to ${email}. Check your email inbox.`}
           </p>
         </div>
 
@@ -192,7 +180,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
             <div className="mb-5 p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-start space-x-2.5 text-xs text-rose-200 animate-fadeIn">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <span className="font-bold">Authentication Notice</span>
+                <span className="font-bold">Supabase Authentication Notice</span>
                 <p>{errorMessage}</p>
               </div>
             </div>
@@ -229,7 +217,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
                 </div>
                 <p className="text-[11px] text-slate-400 mt-2 flex items-center space-x-1">
                   <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
-                  <span>Passwordless OTP login. Your career data is private & isolated to you.</span>
+                  <span>Passwordless OTP login via Supabase. Data is private & encrypted.</span>
                 </p>
               </div>
 
@@ -241,7 +229,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
                 {isLoading ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Sending Verification Code...</span>
+                    <span>Contacting Supabase Auth...</span>
                   </>
                 ) : (
                   <>
@@ -255,7 +243,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
               <div className="pt-4 border-t border-slate-800/80 space-y-2 text-[11px] text-slate-400">
                 <div className="flex items-center space-x-2">
                   <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
-                  <span>Supabase PostgreSQL authenticated session</span>
+                  <span>Supabase Auth & PostgreSQL authenticated session</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -285,35 +273,11 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
                 <span>Change email ({email})</span>
               </button>
 
-              {/* Demo OTP Helper Banner (if Supabase test SMTP times out) */}
-              {demoOtp && (
-                <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 space-y-2.5 animate-fadeIn">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-300 flex items-center space-x-1.5">
-                      <KeyRound className="w-4 h-4 text-amber-400" />
-                      <span>Instant Verification Code</span>
-                    </span>
-                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">
-                      Dev / SMTP Mode
-                    </span>
-                  </div>
-                  <p className="text-xs text-amber-100/90 leading-relaxed">
-                    Verification code for <strong className="text-white">{email}</strong>:
-                  </p>
-                  <div className="flex items-center justify-between bg-slate-950/70 p-2.5 rounded-xl border border-amber-500/30">
-                    <span className="font-mono text-xl font-bold tracking-widest text-amber-300 px-2">
-                      {demoOtp}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleUseDemoOtp}
-                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors cursor-pointer"
-                    >
-                      Auto-Fill & Verify
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Instruction info */}
+              <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs flex items-center space-x-2">
+                <Mail className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span>Please check your inbox (and spam) for the Supabase verification code.</span>
+              </div>
 
               {/* 6 Digit Input Boxes */}
               <div className="space-y-2">
@@ -349,7 +313,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
                 {isLoading ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Verifying Code & Launching...</span>
+                    <span>Verifying Code with Supabase...</span>
                   </>
                 ) : (
                   <>
@@ -381,7 +345,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
 
         {/* Footer Note */}
         <p className="text-center text-[11px] text-slate-400">
-          Career Pilot • End-to-end encrypted AI Career Pivot Coach
+          Career Pilot • End-to-end encrypted AI Career Pivot Coach powered by Supabase
         </p>
       </div>
     </div>
