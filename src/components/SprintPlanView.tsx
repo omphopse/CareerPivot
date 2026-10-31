@@ -10,12 +10,13 @@ import {
   Clock,
   Sparkles,
   BookOpen,
-  Code2,
   Check,
-  ArrowRight
+  ArrowRight,
+  TrendingUp,
+  Info
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { SprintPlan, SprintTask, DailyQuiz } from '../types';
+import type { SprintPlan, DailyQuiz } from '../types';
 
 interface SprintPlanViewProps {
   sprintPlan: SprintPlan;
@@ -32,6 +33,7 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
   const [quizSelectedOption, setQuizSelectedOption] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
 
+  const totalDays = sprintPlan.days.length;
   const activeDay = sprintPlan.days.find((d) => d.dayNumber === selectedDayNum) || sprintPlan.days[0];
 
   // Toggle task completion
@@ -63,11 +65,6 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
       return day;
     });
 
-    // Recalculate mastery slightly on task completions
-    const currentCompleted = updatedDays
-      .flatMap((d) => d.tasks)
-      .filter((t) => t.completed).length;
-
     const newPlan: SprintPlan = {
       ...sprintPlan,
       days: updatedDays
@@ -89,10 +86,13 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
         origin: { y: 0.6 }
       });
 
-      // Boost related mastery
+      // Boost mastery
       const updatedMastery = { ...sprintPlan.masteryScores };
-      if (selectedDayNum === 1) updatedMastery['Modern Java 21 & Spring Boot 3'] = Math.min(100, (updatedMastery['Modern Java 21 & Spring Boot 3'] || 40) + 15);
-      if (selectedDayNum === 4) updatedMastery['Apache Kafka & Event Streaming'] = Math.min(100, (updatedMastery['Apache Kafka & Event Streaming'] || 25) + 15);
+      const keys = Object.keys(updatedMastery);
+      if (keys.length > 0) {
+        const targetKey = keys[Math.min(selectedDayNum - 1, keys.length - 1)];
+        updatedMastery[targetKey] = Math.min(100, (updatedMastery[targetKey] || 40) + 12);
+      }
 
       onUpdatePlan({
         ...sprintPlan,
@@ -110,10 +110,10 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
             <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
               <CalendarCheck className="w-5 h-5" />
             </div>
-            <span>Personal 7-Day Sprint Plan & Adaptive Learning Engine</span>
+            <span>Adaptive Sprint Plan ({totalDays} Days) & Skill Mastery</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Structured day-by-day roadmap targeting {sprintPlan.targetRole} with interactive tasks & conceptual quizzes
+            Dynamically calibrated timeline for {sprintPlan.targetRole} based on candidate gap depth
           </p>
         </div>
 
@@ -125,6 +125,21 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Duration Rationale Banner */}
+      {sprintPlan.durationRationale && (
+        <div className="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 flex items-start space-x-3.5">
+          <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 shrink-0">
+            <Info className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">
+              Calibrated Sprint Duration: {totalDays} Days
+            </span>
+            <p className="text-xs text-slate-200 leading-relaxed">{sprintPlan.durationRationale}</p>
+          </div>
+        </div>
+      )}
 
       {/* Adaptive Recalibration Alert Banner (if any) */}
       {sprintPlan.adaptiveLogs.length > 0 && (
@@ -145,49 +160,61 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
         </div>
       )}
 
-      {/* 7-Day Timeline Pill Selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-        {sprintPlan.days.map((day) => {
-          const isSelected = day.dayNumber === selectedDayNum;
-          const isDone = day.completed;
-          const isRecalibrated = day.theme.includes('RECALIBRATED');
+      {/* Variable-Day Timeline Pill Selector */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+          <span>Sprint Timeline: Select Day</span>
+          <span>{sprintPlan.days.filter((d) => d.completed).length} of {totalDays} Days Completed</span>
+        </div>
 
-          return (
-            <button
-              key={day.dayNumber}
-              onClick={() => {
-                setSelectedDayNum(day.dayNumber);
-                setQuizSelectedOption(null);
-                setQuizSubmitted(false);
-              }}
-              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
-                isSelected
-                  ? 'bg-indigo-950/80 border-indigo-500 shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-500/50'
-                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
-              }`}
-            >
-              {isRecalibrated && (
-                <div className="absolute top-0 right-0 w-2.5 h-2.5 rounded-bl bg-amber-400" title="Recalibrated by AI Coach" />
-              )}
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className={`font-bold ${isSelected ? 'text-indigo-300' : 'text-slate-400'}`}>
-                  Day {day.dayNumber}
-                </span>
-                {isDone ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <Circle className="w-3.5 h-3.5 text-slate-600" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2.5">
+          {sprintPlan.days.map((day) => {
+            const isSelected = day.dayNumber === selectedDayNum;
+            const isDone = day.completed;
+            const isRecalibrated = day.theme.includes('RECALIBRATED') || day.isNewlyAdded;
+
+            return (
+              <button
+                key={day.dayNumber}
+                onClick={() => {
+                  setSelectedDayNum(day.dayNumber);
+                  setQuizSelectedOption(null);
+                  setQuizSubmitted(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+                  isSelected
+                    ? 'bg-indigo-950/80 border-indigo-500 shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-500/50'
+                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
+                }`}
+              >
+                {isRecalibrated && (
+                  <div
+                    className="absolute top-0 right-0 px-1.5 py-0.5 rounded-bl text-[8px] font-bold bg-amber-400 text-slate-950"
+                    title="Adaptive Day Added by AI Coach"
+                  >
+                    AI+
+                  </div>
                 )}
-              </div>
-              <p className="text-[11px] font-semibold text-white line-clamp-2 leading-snug">
-                {day.theme.replace('⚡ RECALIBRATED: ', '')}
-              </p>
-              <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between">
-                <span>{day.tasks.filter((t) => t.completed).length}/{day.tasks.length} tasks</span>
-              </div>
-            </button>
-          );
-        })}
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className={`font-bold ${isSelected ? 'text-indigo-300' : 'text-slate-400'}`}>
+                    Day {day.dayNumber}
+                  </span>
+                  {isDone ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Circle className="w-3.5 h-3.5 text-slate-600" />
+                  )}
+                </div>
+                <p className="text-[11px] font-semibold text-white line-clamp-2 leading-snug">
+                  {day.theme.replace('⚡ EXTENDED SPRINT: ', '').replace('⚡ RECALIBRATED: ', '')}
+                </p>
+                <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between">
+                  <span>{day.tasks.filter((t) => t.completed).length}/{day.tasks.length} tasks</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Selected Day View */}
@@ -196,9 +223,16 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
         <div className="lg:col-span-2 space-y-6">
           <div className="glass-panel p-6 rounded-3xl space-y-3">
             <div className="flex items-center justify-between">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 border border-indigo-500/30 text-indigo-300">
-                DAY {activeDay.dayNumber} OF 7
-              </span>
+              <div className="flex items-center space-x-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 border border-indigo-500/30 text-indigo-300">
+                  DAY {activeDay.dayNumber} OF {totalDays}
+                </span>
+                {activeDay.isNewlyAdded && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300 animate-pulse">
+                    ⚡ Extended Day from Mock Interview
+                  </span>
+                )}
+              </div>
               <span className="text-xs text-slate-400">
                 {activeDay.tasks.filter((t) => t.completed).length} of {activeDay.tasks.length} tasks completed
               </span>
@@ -301,7 +335,7 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
                 <HelpCircle className="w-3.5 h-3.5" />
                 <span>DAY {activeDay.dayNumber} MINI-QUIZ</span>
               </span>
-              <span className="text-xs text-slate-400">+15% Mastery</span>
+              <span className="text-xs text-slate-400">+12% Mastery</span>
             </div>
 
             <h3 className="text-sm font-bold text-white leading-snug">{activeDay.quiz.question}</h3>
@@ -360,7 +394,7 @@ export const SprintPlanView: React.FC<SprintPlanViewProps> = ({
                   {quizSelectedOption === activeDay.quiz.correctIndex ? (
                     <>
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>Correct! +15% Skill Mastery Boost</span>
+                      <span>Correct! Mastery score updated.</span>
                     </>
                   ) : (
                     <>

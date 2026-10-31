@@ -69,6 +69,7 @@ export interface SprintDay {
   completed: boolean;
   tasks: SprintTask[];
   quiz: DailyQuiz;
+  isNewlyAdded?: boolean;
 }
 
 export interface AdaptiveLog {
@@ -83,6 +84,8 @@ export interface SprintPlan {
   id: string;
   targetRole: string;
   currentDay: number;
+  totalDays: number;
+  durationRationale?: string;
   days: SprintDay[];
   masteryScores: Record<string, number>;
   adaptiveLogs: AdaptiveLog[];

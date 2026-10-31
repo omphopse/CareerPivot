@@ -73,7 +73,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </span>
               <span className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800 text-xs text-slate-300">
                 <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Day {sprintPlan.currentDay} of 7: <strong className="text-white">{currentDayPlan?.theme.split(':')[0]}</strong></span>
+                <span>Day {sprintPlan.currentDay} of {sprintPlan.days.length}: <strong className="text-white">{currentDayPlan?.theme.split(':')[0]}</strong></span>
               </span>
               <span className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800 text-xs text-slate-300">
                 <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
@@ -136,13 +136,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* 7-Day Sprint Completion */}
+        {/* Adaptive Sprint Completion */}
         <div
           onClick={() => onNavigate('sprint')}
           className="glass-panel glass-panel-hover p-5 rounded-2xl cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">7-Day Sprint Pace</span>
+            <span className="text-xs font-medium text-slate-400">Adaptive Sprint Pace</span>
             <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 transition-colors">
               <Calendar className="w-4 h-4" />
             </div>
@@ -160,7 +160,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             />
           </div>
           <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Day {sprintPlan.currentDay} of 7 Active</span>
+            <span>Day {sprintPlan.currentDay} of {sprintPlan.days.length} Active</span>
             <span className="text-indigo-300 font-medium group-hover:underline flex items-center">
               View Sprint <ChevronRight className="w-3 h-3" />
             </span>

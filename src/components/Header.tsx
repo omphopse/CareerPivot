@@ -92,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <CalendarCheck className="w-4 h-4" />
-              <span>7-Day Sprint</span>
+              <span>Adaptive Sprint</span>
             </button>
 
             <button
@@ -203,7 +203,7 @@ export const Header: React.FC<HeaderProps> = ({
               activeTab === 'sprint' ? 'bg-indigo-600 text-white' : 'text-slate-400'
             }`}
           >
-            7-Day Sprint
+            Adaptive Sprint
           </button>
           <button
             onClick={() => setActiveTab('interview')}

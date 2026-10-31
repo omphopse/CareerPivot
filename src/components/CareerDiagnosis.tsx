@@ -279,7 +279,7 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
               onClick={onNavigateToSprint}
               className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
             >
-              <span>Build 7-Day Sprint Plan</span>
+              <span>View Adaptive Sprint Plan</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

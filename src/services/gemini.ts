@@ -5,7 +5,8 @@ import type {
   InterviewQuestion,
   AdaptiveLog,
   SkillItem,
-  InterviewFocusArea
+  InterviewFocusArea,
+  SprintDay
 } from '../types';
 
 const envGeminiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -177,8 +178,8 @@ Return ONLY valid JSON matching this schema:
   },
 
   /**
-   * 2. Personalized 7-Day Sprint Plan Generator:
-   * Generates a custom day-by-day sprint plan based on the user's specific target role and gap skills!
+   * 2. Personalized Variable-Duration Sprint Plan Generator:
+   * Dynamically calculates how many days are required based on the depth of the candidate's gaps!
    */
   async generatePersonalizedSprintPlan(
     targetRole: string,
@@ -194,15 +195,27 @@ Return ONLY valid JSON matching this schema:
 
     try {
       const systemInstruction = `You are a Principal Engineering Career Mentor.
-Given a candidate's target role, target company, and their specific identified skill gaps, build a rigorous, realistic, and highly practical 7-Day Sprint Plan.
-Day 1 to Day 7 must have themes, specific daily goals, 2 to 3 actionable tasks (with deliverable outputs and learning resources), and an authentic daily conceptual multiple-choice quiz with 4 options, the correctIndex (0-3), and an explanation.
+Given a candidate's target role, target company, and their specific identified skill gaps, determine how many days the candidate realistically needs to bridge these gaps without superficial rushing:
+- If 1-2 minor gaps: 5 to 7 days
+- If 3-4 significant gaps: 10 to 14 days
+- If 5+ critical gaps or a major pivot: 14 to 21 (or up to 28) days!
+
+Provide a variable-day sprint plan. Each day must have:
+- dayNumber (1 to totalDays)
+- theme (concise and milestone-driven)
+- goal (clear 1-sentence sprint objective)
+- tasks: 2 to 3 actionable tasks (duration, type: 'concept'|'build'|'practice'|'quiz'|'review', concrete deliverable, resource)
+- quiz: authentic conceptual multiple-choice quiz with 4 options, correctIndex (0-3), and explanation.
+
 Return ONLY valid JSON matching this schema:
 {
   "targetRole": string,
+  "totalDays": number,
+  "durationRationale": string (clear explanation of why this duration was calculated based on the candidate's gap count and complexity),
   "masteryScores": { [skillName: string]: number (0-100) },
   "days": [
     {
-      "dayNumber": number (1 to 7),
+      "dayNumber": number,
       "theme": string,
       "goal": string,
       "completed": false,
@@ -211,7 +224,7 @@ Return ONLY valid JSON matching this schema:
           "id": string,
           "title": string,
           "description": string,
-          "duration": string (e.g. "45 min"),
+          "duration": string,
           "type": "concept" | "build" | "practice" | "quiz" | "review",
           "completed": false,
           "deliverable": string,
@@ -235,32 +248,40 @@ Return ONLY valid JSON matching this schema:
       const prompt = `TARGET ROLE: ${targetRole}
 TARGET COMPANY: ${targetCompany}
 
-IDENTIFIED CRITICAL SKILL GAPS:
+IDENTIFIED CRITICAL SKILL GAPS (${gapSkills.length} Total):
 ${gapSkills.map((g) => `- ${g.skill} (${g.category}): ${g.actionItem || g.jdRequirement}`).join('\n')}
 
 VERIFIED CANDIDATE STRENGTHS:
 ${matchedSkills.map((m) => `- ${m.skill}`).join('\n')}
 
-Generate the custom 7-Day Sprint Plan with daily tasks, code deliverables, and conceptual quizzes.`;
+Determine the required sprint duration in days and build the complete variable-day sprint plan.`;
 
       const rawJson = await callGemini(prompt, systemInstruction);
       const parsed = JSON.parse(rawJson);
+
+      const daysArray: SprintDay[] = Array.isArray(parsed.days) && parsed.days.length > 0
+        ? parsed.days
+        : generateSyntheticSprintPlan(targetRole, gapSkills, matchedSkills).days;
+
+      const totalDays = parsed.totalDays || daysArray.length;
 
       return {
         id: `sprint-${Date.now()}`,
         targetRole: parsed.targetRole || targetRole,
         currentDay: 1,
+        totalDays,
+        durationRationale: parsed.durationRationale || `Calibrated a ${totalDays}-day sprint based on ${gapSkills.length} identified competency gaps.`,
         masteryScores: parsed.masteryScores || initializeMastery(gapSkills, matchedSkills),
         adaptiveLogs: [
           {
             id: `log-init-${Date.now()}`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            reason: `Sprint initialized for ${targetRole}`,
-            changeSummary: `Calibrated 7-day curriculum targeting ${gapSkills.length} identified competency gaps.`,
-            affectedSkills: gapSkills.map((g) => g.skill).slice(0, 3)
+            reason: `Adaptive Sprint initialized for ${targetRole}`,
+            changeSummary: `Dynamically calibrated ${totalDays}-day curriculum based on ${gapSkills.length} detected skill gaps.`,
+            affectedSkills: gapSkills.map((g) => g.skill).slice(0, 4)
           }
         ],
-        days: parsed.days || generateSyntheticSprintPlan(targetRole, gapSkills, matchedSkills).days
+        days: daysArray
       };
     } catch (err) {
       console.warn('Gemini sprint generation error, falling back:', err);
@@ -269,8 +290,7 @@ Generate the custom 7-Day Sprint Plan with daily tasks, code deliverables, and c
   },
 
   /**
-   * 3. Role-Specific Interview Questions Generator:
-   * Generates 3 targeted interview questions matching the user's specific target role and gap skills!
+   * 3. Role-Specific Interview Questions Generator
    */
   async generateRoleInterviewQuestions(
     targetRole: string,
@@ -389,7 +409,9 @@ Evaluate rigorously. If the answer is superficial, suggests anti-patterns, or mi
   },
 
   /**
-   * 5. Adaptive Learning Engine: Recalibrates 7-Day Sprint Plan based on interview weaknesses
+   * 5. Adaptive Learning Engine: Recalibrates AND Extends Sprint Plan
+   * If the sprint schedule is too tight to fit remedial work into existing days,
+   * it dynamically appends a brand new remedial day to the sprint!
    */
   recalibrateSprintPlan(
     currentPlan: SprintPlan,
@@ -415,47 +437,86 @@ Evaluate rigorously. If the answer is superficial, suggests anti-patterns, or mi
       }
     });
 
-    // Injects an emergency remedial task into Day 4
     const primaryWeakness = evaluation.weakTopics[0] || 'Target Architecture';
-    const updatedDays = currentPlan.days.map((day) => {
-      if (day.dayNumber === 4) {
-        return {
-          ...day,
-          theme: `⚡ RECALIBRATED: ${primaryWeakness} Remedial Practice`,
-          goal: `Priority adjusted from failed mock interview: Deep dive into ${primaryWeakness} and hands-on implementation.`,
-          tasks: [
-            {
-              id: `adapt-task-${Date.now()}`,
-              title: `CRITICAL REMEDY: Hands-on implementation of ${primaryWeakness}`,
-              description: `Resolve interview deficit: Build a focused prototype and unit test suite addressing "${evaluation.improvementAreas[0] || primaryWeakness}".`,
-              duration: '60 min',
-              type: 'build' as const,
-              completed: false,
-              deliverable: `Working code implementation verifying mastery in ${primaryWeakness}.`,
-              resource: {
-                title: `${primaryWeakness} Guide & Architecture`,
-                url: 'https://github.com'
-              }
-            },
-            ...day.tasks
-          ]
-        };
+    const newDayNumber = currentPlan.days.length + 1;
+
+    // Create a brand new remedial day to prevent overloading the current schedule
+    const remedialDay: SprintDay = {
+      dayNumber: newDayNumber,
+      theme: `⚡ EXTENDED SPRINT: Remedial Mastery in ${primaryWeakness}`,
+      goal: `Dynamically added from Mock Interview evaluation (Score: ${evaluation.score}/100): Deep dive and implementation lab for ${primaryWeakness}.`,
+      completed: false,
+      isNewlyAdded: true,
+      tasks: [
+        {
+          id: `adapt-t-${Date.now()}-1`,
+          title: `Architectural Deep Dive: ${primaryWeakness}`,
+          description: `Study root cause principles, failure modes, and architectural trade-offs addressing: "${evaluation.improvementAreas[0] || primaryWeakness}".`,
+          duration: '45 min',
+          type: 'concept',
+          completed: false,
+          deliverable: `Technical summary notes and architecture diagram for ${primaryWeakness}.`,
+          resource: {
+            title: `${primaryWeakness} Guide & Architecture`,
+            url: 'https://github.com'
+          }
+        },
+        {
+          id: `adapt-t-${Date.now()}-2`,
+          title: `Hands-On Lab: Build Proof-of-Concept for ${primaryWeakness}`,
+          description: `Implement the recommended pattern: "${evaluation.suggestedAnswer.substring(0, 100)}..." with unit test verification.`,
+          duration: '60 min',
+          type: 'build',
+          completed: false,
+          deliverable: `Working code implementation verifying error handling and edge cases.`,
+          resource: {
+            title: 'Hands-on Repository Lab',
+            url: 'https://github.com'
+          }
+        },
+        {
+          id: `adapt-t-${Date.now()}-3`,
+          title: `Interview Retest Practice: ${primaryWeakness}`,
+          description: `Practice articulating failure recovery, idempotency, and concurrency guarantees for ${primaryWeakness}.`,
+          duration: '30 min',
+          type: 'practice',
+          completed: false,
+          deliverable: `Answer scoring >80% on AI rubrics.`,
+          resource: {
+            title: 'Career Pilot Mock Simulator',
+            url: '#'
+          }
+        }
+      ],
+      quiz: {
+        id: `q-adapt-${Date.now()}`,
+        question: `In production systems, what is the most critical pattern to resolve the weakness in ${primaryWeakness}?`,
+        options: [
+          `Adopt atomic operations, idempotency keys, and explicit transaction boundary management`,
+          `Ignore exceptions and rely on default timeout mechanisms`,
+          `Restart the application container whenever a network error occurs`,
+          `Increase thread pool size without adding synchronization`
+        ],
+        correctIndex: 0,
+        explanation: `Resolving deficits in ${primaryWeakness} requires rigorous architectural guarantees, explicit transaction boundaries, and idempotent processing.`
       }
-      return day;
-    });
+    };
+
+    const updatedDays = [...currentPlan.days, remedialDay];
 
     const newLog: AdaptiveLog = {
       id: `log-${Date.now()}`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      reason: `Mock Interview revealed weak topic: ${evaluation.weakTopics.join(', ')} (Score: ${evaluation.score}/100)`,
-      changeSummary: `Injected emergency remedial task for ${primaryWeakness} into Day 4 and updated mastery index.`,
-      affectedSkills
+      reason: `Mock Interview revealed critical deficit in ${evaluation.weakTopics.join(', ')} (Score: ${evaluation.score}/100)`,
+      changeSummary: `Sprint schedule was tight: Dynamically extended sprint from ${currentPlan.days.length} to ${newDayNumber} days by appending Day ${newDayNumber} ('${primaryWeakness} Remedial Mastery').`,
+      affectedSkills: evaluation.weakTopics
     };
 
     return {
       ...currentPlan,
-      masteryScores: updatedMastery,
+      totalDays: newDayNumber,
       days: updatedDays,
+      masteryScores: updatedMastery,
       adaptiveLogs: [newLog, ...currentPlan.adaptiveLogs]
     };
   }
@@ -532,19 +593,30 @@ function generateSyntheticDiagnosis(resume: string, jd: string): CareerDiagnosis
         resumeEvidence: 'Missing concrete evidence of circuit breakers, rate limiting, and fallback handling.',
         jdRequirement: 'Implementation of resilient microservices patterns under heavy traffic.',
         actionItem: 'Configure circuit breaker and rate limiting with automated metrics monitoring.'
+      },
+      {
+        id: `g-${Date.now()}-3`,
+        skill: 'High Concurrency & JVM Tuning',
+        category: 'Core Language',
+        importance: 'Required',
+        strengthLevel: 'missing',
+        matchCategory: 'gap',
+        resumeEvidence: 'General programming mentioned without concurrent thread safety proof.',
+        jdRequirement: 'High concurrency and thread-safe data structures.',
+        actionItem: 'Document multi-threaded benchmark tests.'
       }
     ],
     weakEvidenceSkills: [
       {
         id: `w-${Date.now()}-1`,
-        skill: 'High Concurrency & JVM Tuning',
-        category: 'Core Language',
+        skill: 'Distributed System Design',
+        category: 'System Design',
         importance: 'Required',
         strengthLevel: 'weak',
         matchCategory: 'weak_evidence',
-        resumeEvidence: 'Mentioned general programming languages without concrete multi-threading scale metrics.',
-        jdRequirement: 'Deep understanding of memory models, thread pools, and concurrency.',
-        actionItem: 'Prepare benchmark tests demonstrating thread safety and deadlock prevention.'
+        resumeEvidence: 'No high-scale production load metrics verified in resume.',
+        jdRequirement: 'Experience designing architectures handling high throughput.',
+        actionItem: 'Prepare system design blueprints detailing sharding and caching.'
       }
     ],
     interviewFocusAreas: [
@@ -566,277 +638,515 @@ function generateSyntheticSprintPlan(
   gapSkills: SkillItem[],
   matchedSkills: SkillItem[]
 ): SprintPlan {
+  // Determine duration based on gap count
+  const gapCount = gapSkills.length;
+  const totalDays = gapCount >= 4 ? 14 : gapCount >= 3 ? 10 : 7;
   const gapName1 = gapSkills[0]?.skill || 'Core Framework & Concurrency';
   const gapName2 = gapSkills[1]?.skill || 'Distributed Messaging & Storage';
+  const gapName3 = gapSkills[2]?.skill || 'Resilience & System Architecture';
+
+  const baseDays: SprintDay[] = [
+    {
+      dayNumber: 1,
+      theme: `Modern ${targetRole} Foundations & Syntax`,
+      goal: 'Establish deep mastery over modern language constructs and core architecture patterns.',
+      completed: false,
+      tasks: [
+        {
+          id: 'd1-t1',
+          title: `Review Core Architecture for ${targetRole}`,
+          description: 'Study advanced idioms, immutability, and concurrency models.',
+          duration: '45 min',
+          type: 'concept',
+          completed: false,
+          deliverable: 'Summary notes covering memory management and asynchronous execution.',
+          resource: {
+            title: 'Language Architecture Guide',
+            url: 'https://docs.oracle.com'
+          }
+        },
+        {
+          id: 'd1-t2',
+          title: 'Scaffold Core Service Architecture',
+          description: 'Initialize clean modular project structure with automated testing pipeline.',
+          duration: '60 min',
+          type: 'build',
+          completed: false,
+          deliverable: 'Running baseline service with health checks and unit tests.',
+          resource: {
+            title: 'Boilerplate Architecture Guide',
+            url: 'https://github.com'
+          }
+        }
+      ],
+      quiz: {
+        id: 'q-d1',
+        question: `In modern ${targetRole} systems, what is the primary benefit of immutability?`,
+        options: [
+          'It eliminates the need for CPU cache',
+          'It guarantees thread safety by preventing shared mutable state across concurrent threads',
+          'It disables database indexing',
+          'It replaces all network protocols'
+        ],
+        correctIndex: 1,
+        explanation: 'Immutable data structures eliminate race conditions and simplify concurrent programming because threads cannot alter shared state.'
+      }
+    },
+    {
+      dayNumber: 2,
+      theme: 'Database Scalability & Transactional Guarantees',
+      goal: 'Master query optimization, connection pooling, and ACID isolation levels.',
+      completed: false,
+      tasks: [
+        {
+          id: 'd2-t1',
+          title: 'Analyze Query Execution Plans and Indexes',
+          description: 'Inspect slow queries, add B-Tree composite indexes, and eliminate full table scans.',
+          duration: '50 min',
+          type: 'practice',
+          completed: false,
+          deliverable: 'Execution plan benchmark showing sub-10ms response times.',
+          resource: {
+            title: 'SQL Performance & Indexing',
+            url: 'https://use-the-index-luke.com'
+          }
+        }
+      ],
+      quiz: {
+        id: 'q-d2',
+        question: 'Which transaction isolation level prevents dirty reads, non-repeatable reads, and phantom reads?',
+        options: ['Read Uncommitted', 'Read Committed', 'Repeatable Read', 'Serializable'],
+        correctIndex: 3,
+        explanation: 'Serializable is the highest isolation level, completely isolating concurrent transactions as if they executed sequentially.'
+      }
+    },
+    {
+      dayNumber: 3,
+      theme: `Bridging Critical Gap: ${gapName1}`,
+      goal: `Hands-on implementation of ${gapName1} to close the primary identified deficiency.`,
+      completed: false,
+      tasks: [
+        {
+          id: 'd3-t1',
+          title: `Implement ${gapName1} Prototype`,
+          description: 'Build a production-grade component demonstrating thread safety and clean error handling.',
+          duration: '75 min',
+          type: 'build',
+          completed: false,
+          deliverable: `Tested microservice component implementing ${gapName1}.`,
+          resource: {
+            title: `${gapName1} Best Practices`,
+            url: 'https://github.com'
+          }
+        }
+      ],
+      quiz: {
+        id: 'q-d3',
+        question: `Why must distributed event consumers be designed to be idempotent?`,
+        options: [
+          'Because networks can cause duplicate message redeliveries (at-least-once semantics)',
+          'Because databases do not allow primary keys',
+          'Because Kafka deletes all topics automatically',
+          'Because memory is limited'
+        ],
+        correctIndex: 0,
+        explanation: 'Distributed brokers use at-least-once delivery; network timeouts or consumer crashes cause duplicate messages, necessitating idempotency.'
+      }
+    },
+    {
+      dayNumber: 4,
+      theme: `Bridging Secondary Gap: ${gapName2}`,
+      goal: `Master ${gapName2} and resilient event streams.`,
+      completed: false,
+      tasks: [
+        {
+          id: 'd4-t1',
+          title: `Integrate ${gapName2} with Failure Recovery`,
+          description: 'Configure retries, dead letter queues, and consumer offset commits.',
+          duration: '60 min',
+          type: 'build',
+          completed: false,
+          deliverable: 'Resilient event handler with exponential backoff retry.',
+          resource: {
+            title: 'Resilient Messaging Architecture',
+            url: 'https://microservices.io'
+          }
+        }
+      ],
+      quiz: {
+        id: 'q-d4',
+        question: 'What is the role of a Dead Letter Queue (DLQ) in message processing?',
+        options: [
+          'To speed up CPU clock speed',
+          'To isolate and inspect poison-pill messages that fail repeatedly without blocking valid traffic',
+          'To permanently delete all incoming messages',
+          'To format JSON payloads'
+        ],
+        correctIndex: 1,
+        explanation: 'A DLQ stores failed or corrupted messages for subsequent inspection, ensuring consumer threads do not get stuck in endless retry loops.'
+      }
+    },
+    {
+      dayNumber: 5,
+      theme: `Deep Dive: ${gapName3}`,
+      goal: `Hands-on architectural implementation of ${gapName3}.`,
+      completed: false,
+      tasks: [
+        {
+          id: 'd5-t1',
+          title: `Configure ${gapName3} with Metrics & Alerting`,
+          description: 'Set thresholds, fallback handlers, and health endpoints.',
+          duration: '50 min',
+          type: 'build',
+          completed: false,
+          deliverable: 'Service returning cached or degraded response when downstream fails.',
+          resource: {
+            title: `${gapName3} Guide`,
+            url: 'https://github.com'
+          }
+        }
+      ],
+      quiz: {
+        id: 'q-d5',
+        question: 'What happens when a circuit breaker enters the OPEN state?',
+        options: [
+          'It allows all requests through normally',
+          'It immediately rejects calls without waiting for network timeouts, preventing cascade failure',
+          'It restarts the entire host server',
+          'It clears the database cache'
+        ],
+        correctIndex: 1,
+        explanation: 'The OPEN state fails fast immediately, avoiding exhausting thread pools while the downstream dependency recovers.'
+      }
+    },
+    {
+      dayNumber: 6,
+      theme: 'High-Availability System Design & Fault Tolerance',
+      goal: 'Implement circuit breakers, rate limiting, and graceful degradation.',
+      completed: false,
+      tasks: [
+        {
+          id: 'd6-t1',
+          title: 'Draft Full Architecture Blueprint',
+          description: 'Design caching, sharding, load balancing, and data consistency for the target role.',
+          duration: '60 min',
+          type: 'build',
+          completed: false,
+          deliverable: 'System design diagram and technical specification document.',
+          resource: {
+            title: 'System Design Primer',
+            url: 'https://github.com/donnemartin/system-design-primer'
+          }
+        }
+      ],
+      quiz: {
+        id: 'q-d6',
+        question: 'What is the Transactional Outbox pattern primarily used for?',
+        options: [
+          'To send email newsletters',
+          'To atomically update a database and publish an event to a message broker in a single transaction',
+          'To delete old log files',
+          'To compress images'
+        ],
+        correctIndex: 1,
+        explanation: 'The Transactional Outbox pattern eliminates dual-write inconsistencies between databases and event brokers by committing both in a single local DB transaction.'
+      }
+    },
+    {
+      dayNumber: 7,
+      theme: 'Mock Interview Board & Resume Evidence Refactoring',
+      goal: 'Demonstrate senior technical articulation and rewrite resume bullet points with concrete metrics.',
+      completed: false,
+      tasks: [
+        {
+          id: 'd7-t1',
+          title: 'Complete AI Technical Mock Interviews',
+          description: 'Practice high-pressure technical questions on your newly bridged skills.',
+          duration: '60 min',
+          type: 'practice',
+          completed: false,
+          deliverable: 'Mock interview rubric score exceeding 80%.',
+          resource: {
+            title: 'Career Pilot Mock Simulator',
+            url: '#'
+          }
+        },
+        {
+          id: 'd7-t2',
+          title: 'Update Resume Bullets with Sprint Deliverables',
+          description: 'Rewrite past project bullet points using the Action + Metric + Technical Tooling formula.',
+          duration: '45 min',
+          type: 'review',
+          completed: false,
+          deliverable: 'Refactored resume highlighting bridged skills ready for submission.',
+          resource: {
+            title: 'Tech Resume Guide',
+            url: 'https://github.com'
+          }
+        }
+      ],
+      quiz: {
+        id: 'q-d7',
+        question: 'Which resume bullet point is most effective for senior technical recruiters?',
+        options: [
+          'Used Java and Kafka on a project',
+          'Architected event-driven microservice using Java and Kafka with idempotent outbox pattern, handling 5,000 req/sec with zero lost transactions',
+          'Worked on backend development team',
+          'Read documentation about distributed systems'
+        ],
+        correctIndex: 1,
+        explanation: 'Senior hiring managers look for quantifiable metrics, architectural patterns, and business outcomes.'
+      }
+    }
+  ];
+
+  // If 10 or 14 days required, add extra progressive days
+  if (totalDays >= 10) {
+    baseDays.push(
+      {
+        dayNumber: 8,
+        theme: 'Advanced Concurrency: Lock-Free Algorithms & Memory Visibility',
+        goal: 'Master CPU caches, volatile semantics, and Atomic CAS data structures.',
+        completed: false,
+        tasks: [
+          {
+            id: 'd8-t1',
+            title: 'Build High-Throughput Lock-Free Queue',
+            description: 'Implement lock-free queue using Compare-And-Swap (CAS) primitives and benchmark against mutexes.',
+            duration: '60 min',
+            type: 'build',
+            completed: false,
+            deliverable: 'Benchmark comparing throughput under 100 concurrent threads.',
+            resource: {
+              title: 'Java Concurrency in Practice',
+              url: 'https://github.com'
+            }
+          }
+        ],
+        quiz: {
+          id: 'q-d8',
+          question: 'What does CPU false sharing refer to in high-concurrency systems?',
+          options: [
+            'Two threads modifying different variables that reside on the same CPU cache line (64 bytes), causing cache invalidation ping-pong',
+            'Two programs running on different computers',
+            'Shared virtual memory pages',
+            'A database deadlock'
+          ],
+          correctIndex: 0,
+          explanation: 'False sharing happens when independent variables share the same 64-byte L1/L2 cache line, forcing unnecessary cache invalidation cycles across cores.'
+        }
+      },
+      {
+        dayNumber: 9,
+        theme: 'Distributed Tracing, Observability & OpenTelemetry',
+        goal: 'Trace requests across microservices with trace IDs, span IDs, and Prometheus metrics.',
+        completed: false,
+        tasks: [
+          {
+            id: 'd9-t1',
+            title: 'Instrument Service with OpenTelemetry and Micrometer',
+            description: 'Propagate W3C trace context headers across HTTP and message broker boundaries.',
+            duration: '50 min',
+            type: 'practice',
+            completed: false,
+            deliverable: 'Working Jaeger trace visualization showing end-to-end request timeline.',
+            resource: {
+              title: 'OpenTelemetry Documentation',
+              url: 'https://opentelemetry.io'
+            }
+          }
+        ],
+        quiz: {
+          id: 'q-d9',
+          question: 'How does W3C Trace Context maintain request correlation across asynchronous messaging boundaries?',
+          options: [
+            'It attaches `traceparent` and `tracestate` headers to outgoing message metadata',
+            'It keeps an open TCP socket forever',
+            'It writes logs to a shared hard drive',
+            'It restarts downstream consumers'
+          ],
+          correctIndex: 0,
+          explanation: 'W3C Trace Context standardizes passing `traceparent` (version, trace ID, parent ID, trace flags) in HTTP/Kafka headers to link asynchronous traces.'
+        }
+      },
+      {
+        dayNumber: 10,
+        theme: 'End-to-End Senior Technical Screen & Portfolio Presentation',
+        goal: 'Complete comprehensive interview simulation and verify portfolio GitHub repositories.',
+        completed: false,
+        tasks: [
+          {
+            id: 'd10-t1',
+            title: 'Full Technical Mock Screen',
+            description: 'Simulate high-pressure 60-minute technical bar-raiser interview round.',
+            duration: '60 min',
+            type: 'practice',
+            completed: false,
+            deliverable: 'AI evaluation score exceeding 85% across all rubric categories.',
+            resource: {
+              title: 'Career Pilot Mock Simulator',
+              url: '#'
+            }
+          }
+        ],
+        quiz: {
+          id: 'q-d10',
+          question: 'In a senior architecture interview, what should you clarify FIRST before jumping into designing a system?',
+          options: [
+            'Write SQL tables immediately',
+            'Clarify functional & non-functional requirements, traffic scale (RPS), and latency/availability SLAs',
+            'Pick a specific framework',
+            'Ask for the interviewer\'s favorite programming language'
+          ],
+          correctIndex: 1,
+          explanation: 'Senior engineers always scope requirements, scale constraints (read/write throughput, storage), and availability SLAs before picking technologies.'
+        }
+      }
+    );
+  }
+
+  if (totalDays >= 14) {
+    baseDays.push(
+      {
+        dayNumber: 11,
+        theme: 'Disaster Recovery & Multi-Region Database Replication',
+        goal: 'Design active-active and active-passive failover strategies with RTO and RPO guarantees.',
+        completed: false,
+        tasks: [
+          {
+            id: 'd11-t1',
+            title: 'Design Multi-Region Failover Architecture',
+            description: 'Calculate Recovery Point Objective (RPO) and Recovery Time Objective (RTO).',
+            duration: '50 min',
+            type: 'concept',
+            completed: false,
+            deliverable: 'Disaster recovery specification document.',
+            resource: { title: 'High Availability Architecture', url: 'https://aws.amazon.com' }
+          }
+        ],
+        quiz: {
+          id: 'q-d11',
+          question: 'What is the key difference between RPO and RTO in disaster recovery?',
+          options: [
+            'RPO measures allowable data loss in time, while RTO measures allowable downtime duration until recovery',
+            'RPO is for software, RTO is for hardware',
+            'RPO measures memory, RTO measures disk space',
+            'There is no difference'
+          ],
+          correctIndex: 0,
+          explanation: 'RPO (Recovery Point Objective) dictates acceptable data loss (e.g. max 5 minutes of data), while RTO (Recovery Time Objective) dictates how quickly systems must be restored.'
+        }
+      },
+      {
+        dayNumber: 12,
+        theme: 'Zero-Downtime Database Schema Migrations',
+        goal: 'Execute expand-and-contract migrations with Flyway/Liquibase without table locking.',
+        completed: false,
+        tasks: [
+          {
+            id: 'd12-t1',
+            title: 'Implement Expand-and-Contract Migration Pattern',
+            description: 'Rename and transform high-traffic columns across multi-version deployments without downtime.',
+            duration: '50 min',
+            type: 'practice',
+            completed: false,
+            deliverable: 'Migration scripts with rollback plan.',
+            resource: { title: 'Evolutionary Database Design', url: 'https://martinfowler.com' }
+          }
+        ],
+        quiz: {
+          id: 'q-d12',
+          question: 'Why should you avoid adding a `NOT NULL` column with a default value in older versions of PostgreSQL during peak traffic?',
+          options: [
+            'It requires an exclusive table lock that blocks all concurrent SELECT and UPDATE queries while rewriting the table',
+            'PostgreSQL does not allow default values',
+            'It permanently deletes the database indexes',
+            'It stops the network card'
+          ],
+          correctIndex: 0,
+          explanation: 'Table rewrites acquire an ACCESS EXCLUSIVE lock on the table, which queues behind long-running transactions and blocks all application traffic.'
+        }
+      },
+      {
+        dayNumber: 13,
+        theme: 'Security, Secret Management & Zero-Trust Microservice Identity',
+        goal: 'Implement mTLS, OAuth2/OIDC token verification, and automated secret rotation.',
+        completed: false,
+        tasks: [
+          {
+            id: 'd13-t1',
+            title: 'Configure Mutual TLS (mTLS) and JWT Validation',
+            description: 'Enforce service-to-service authentication and encrypted communication.',
+            duration: '50 min',
+            type: 'build',
+            completed: false,
+            deliverable: 'Secure API gateway configuration with token introspection.',
+            resource: { title: 'Zero Trust Architecture', url: 'https://csrc.nist.gov' }
+          }
+        ],
+        quiz: {
+          id: 'q-d13',
+          question: 'What is the primary benefit of Mutual TLS (mTLS) between internal microservices?',
+          options: [
+            'Both the client and server cryptographically verify each other\'s identity using X.509 certificates',
+            'It removes the need for firewalls',
+            'It speeds up HTTP/1.1 parsing',
+            'It disables TLS encryption'
+          ],
+          correctIndex: 0,
+          explanation: 'Standard TLS only validates the server. mTLS requires both client and server to authenticate with trusted certificates, preventing lateral spoofing in zero-trust networks.'
+        }
+      },
+      {
+        dayNumber: 14,
+        theme: 'Executive Career Pivot Readiness Review & Final Sign-Off',
+        goal: 'Review all deliverables, verify high rubric scores, and finalize application submissions.',
+        completed: false,
+        tasks: [
+          {
+            id: 'd14-t1',
+            title: 'Final Technical Evaluation & Application Launch',
+            description: 'Run final mock interview check and submit updated portfolio applications.',
+            duration: '60 min',
+            type: 'review',
+            completed: false,
+            deliverable: 'All sprint deliverables verified and live applications submitted.',
+            resource: { title: 'Career Pilot Dashboard', url: '#' }
+          }
+        ],
+        quiz: {
+          id: 'q-d14',
+          question: 'What provides the strongest signal to a hiring manager that your career pivot is successful and production-ready?',
+          options: [
+            'Providing production-grade code repositories demonstrating architectural patterns, trade-off rationale, and quantifiable metrics',
+            'Claiming to know all frameworks without evidence',
+            'A resume with 50 buzzwords',
+            'Reading Wikipedia articles'
+          ],
+          correctIndex: 0,
+          explanation: 'Tangible proof-of-work repositories demonstrating real architectural patterns (idempotency, concurrency, resilience) provides undeniable evidence of senior competency.'
+        }
+      }
+    );
+  }
 
   return {
     id: `sprint-${Date.now()}`,
     targetRole,
     currentDay: 1,
+    totalDays: baseDays.length,
+    durationRationale: `Calibrated a ${baseDays.length}-day sprint: Evaluated ${gapSkills.length} critical competency gaps across ${targetRole} requirements. This timeline ensures practical hands-on building, query optimization, and architectural mastery.`,
     masteryScores: initializeMastery(gapSkills, matchedSkills),
     adaptiveLogs: [
       {
         id: `log-${Date.now()}`,
         timestamp: 'Just now',
-        reason: 'Sprint dynamically initialized from Resume and Job Description analysis',
-        changeSummary: `Curriculum calibrated to close gaps in ${gapName1} and ${gapName2}.`,
+        reason: `Adaptive Sprint dynamically initialized for ${targetRole}`,
+        changeSummary: `Calculated optimal duration of ${baseDays.length} days based on gap depth (${gapName1}, ${gapName2}).`,
         affectedSkills: [gapName1, gapName2]
       }
     ],
-    days: [
-      {
-        dayNumber: 1,
-        theme: `Modern ${targetRole} Foundations & Core Language Features`,
-        goal: 'Establish deep mastery over modern language constructs and core architecture patterns.',
-        completed: false,
-        tasks: [
-          {
-            id: 'd1-t1',
-            title: `Review Core Architecture for ${targetRole}`,
-            description: 'Study advanced idioms, immutability, and concurrency models.',
-            duration: '45 min',
-            type: 'concept',
-            completed: false,
-            deliverable: 'Summary notes covering memory management and asynchronous execution.',
-            resource: {
-              title: 'Language Architecture Guide',
-              url: 'https://docs.oracle.com'
-            }
-          },
-          {
-            id: 'd1-t2',
-            title: 'Scaffold Core Microservice Project',
-            description: 'Initialize clean modular project structure with automated testing pipeline.',
-            duration: '60 min',
-            type: 'build',
-            completed: false,
-            deliverable: 'Running baseline service with health checks and unit tests.',
-            resource: {
-              title: 'Microservices Boilerplate Guide',
-              url: 'https://github.com'
-            }
-          }
-        ],
-        quiz: {
-          id: 'q-d1',
-          question: `In modern ${targetRole} systems, what is the primary benefit of immutability and record types?`,
-          options: [
-            'They eliminate the need for CPU cache',
-            'They guarantee thread safety by preventing shared mutable state across concurrent threads',
-            'They disable database indexing',
-            'They replace all network protocols'
-          ],
-          correctIndex: 1,
-          explanation: 'Immutable data structures eliminate race conditions and simplify concurrent programming because threads cannot alter shared state.'
-        }
-      },
-      {
-        dayNumber: 2,
-        theme: 'Database Scalability & Transactional Guarantees',
-        goal: 'Master query optimization, connection pooling, and ACID isolation levels.',
-        completed: false,
-        tasks: [
-          {
-            id: 'd2-t1',
-            title: 'Analyze Query Execution Plans and Indexes',
-            description: 'Inspect slow queries, add B-Tree composite indexes, and eliminate full table scans.',
-            duration: '50 min',
-            type: 'practice',
-            completed: false,
-            deliverable: 'Execution plan benchmark showing sub-10ms response times.',
-            resource: {
-              title: 'SQL Performance & Indexing',
-              url: 'https://use-the-index-luke.com'
-            }
-          }
-        ],
-        quiz: {
-          id: 'q-d2',
-          question: 'Which transaction isolation level prevents dirty reads, non-repeatable reads, and phantom reads?',
-          options: ['Read Uncommitted', 'Read Committed', 'Repeatable Read', 'Serializable'],
-          correctIndex: 3,
-          explanation: 'Serializable is the highest isolation level, completely isolating concurrent transactions as if they executed sequentially.'
-        }
-      },
-      {
-        dayNumber: 3,
-        theme: `Bridging Critical Gap: ${gapName1}`,
-        goal: `Hands-on implementation of ${gapName1} to close the primary identified deficiency.`,
-        completed: false,
-        tasks: [
-          {
-            id: 'd3-t1',
-            title: `Implement ${gapName1} Prototype`,
-            description: 'Build a production-grade component demonstrating thread safety and clean error handling.',
-            duration: '75 min',
-            type: 'build',
-            completed: false,
-            deliverable: `Tested microservice component implementing ${gapName1}.`,
-            resource: {
-              title: `${gapName1} Best Practices`,
-              url: 'https://github.com'
-            }
-          }
-        ],
-        quiz: {
-          id: 'q-d3',
-          question: `Why must distributed event consumers be designed to be idempotent?`,
-          options: [
-            'Because networks can cause duplicate message redeliveries (at-least-once semantics)',
-            'Because databases do not allow primary keys',
-            'Because Kafka deletes all topics automatically',
-            'Because memory is limited'
-          ],
-          correctIndex: 0,
-          explanation: 'Distributed brokers use at-least-once delivery; network timeouts or consumer crashes cause duplicate messages, necessitating idempotency.'
-        }
-      },
-      {
-        dayNumber: 4,
-        theme: `Bridging Secondary Gap: ${gapName2}`,
-        goal: `Master ${gapName2} and resilient event streams.`,
-        completed: false,
-        tasks: [
-          {
-            id: 'd4-t1',
-            title: `Integrate ${gapName2} with Failure Recovery`,
-            description: 'Configure retries, dead letter queues, and consumer offset commits.',
-            duration: '60 min',
-            type: 'build',
-            completed: false,
-            deliverable: 'Resilient event handler with exponential backoff retry.',
-            resource: {
-              title: 'Resilient Messaging Architecture',
-              url: 'https://microservices.io'
-            }
-          }
-        ],
-        quiz: {
-          id: 'q-d4',
-          question: 'What is the role of a Dead Letter Queue (DLQ) in message processing?',
-          options: [
-            'To speed up CPU clock speed',
-            'To isolate and inspect poison-pill messages that fail repeatedly without blocking valid traffic',
-            'To permanently delete all incoming messages',
-            'To format JSON payloads'
-          ],
-          correctIndex: 1,
-          explanation: 'A DLQ stores failed or corrupted messages for subsequent inspection, ensuring consumer threads do not get stuck in endless retry loops.'
-        }
-      },
-      {
-        dayNumber: 5,
-        theme: 'High-Availability System Design & Fault Tolerance',
-        goal: 'Implement circuit breakers, rate limiting, and graceful degradation.',
-        completed: false,
-        tasks: [
-          {
-            id: 'd5-t1',
-            title: 'Configure Circuit Breaker with Fallback Logic',
-            description: 'Protect upstream services when downstream dependencies become unavailable.',
-            duration: '50 min',
-            type: 'practice',
-            completed: false,
-            deliverable: 'Service returning cached or degraded response when downstream fails.',
-            resource: {
-              title: 'Circuit Breaker Pattern Guide',
-              url: 'https://martinfowler.com'
-            }
-          }
-        ],
-        quiz: {
-          id: 'q-d5',
-          question: 'What happens when a circuit breaker enters the OPEN state?',
-          options: [
-            'It allows all requests through normally',
-            'It immediately rejects calls without waiting for network timeouts, preventing cascade failure',
-            'It restarts the entire host server',
-            'It clears the database cache'
-          ],
-          correctIndex: 1,
-          explanation: 'The OPEN state fails fast immediately, avoiding exhausting thread pools while the downstream dependency recovers.'
-        }
-      },
-      {
-        dayNumber: 6,
-        theme: 'End-to-End Enterprise System Design Scenario',
-        goal: 'Architect a complete high-throughput distributed system meeting all JD requirements.',
-        completed: false,
-        tasks: [
-          {
-            id: 'd6-t1',
-            title: 'Draft Full Architecture Blueprint',
-            description: 'Design caching, sharding, load balancing, and data consistency for the target role.',
-            duration: '60 min',
-            type: 'build',
-            completed: false,
-            deliverable: 'System design diagram and technical specification document.',
-            resource: {
-              title: 'System Design Primer',
-              url: 'https://github.com/donnemartin/system-design-primer'
-            }
-          }
-        ],
-        quiz: {
-          id: 'q-d6',
-          question: 'What is the Transactional Outbox pattern primarily used for?',
-          options: [
-            'To send email newsletters',
-            'To atomically update a database and publish an event to a message broker in a single transaction',
-            'To delete old log files',
-            'To compress images'
-          ],
-          correctIndex: 1,
-          explanation: 'The Transactional Outbox pattern eliminates dual-write inconsistencies between databases and event brokers by committing both in a single local DB transaction.'
-        }
-      },
-      {
-        dayNumber: 7,
-        theme: 'Mock Interview Board & Resume Evidence Refactoring',
-        goal: 'Demonstrate senior technical articulation and rewrite resume bullet points with concrete metrics.',
-        completed: false,
-        tasks: [
-          {
-            id: 'd7-t1',
-            title: 'Complete 3 AI Technical Mock Interviews',
-            description: 'Practice high-pressure technical questions on your newly bridged skills.',
-            duration: '60 min',
-            type: 'practice',
-            completed: false,
-            deliverable: 'Mock interview rubric score exceeding 80%.',
-            resource: {
-              title: 'Career Pilot Mock Simulator',
-              url: '#'
-            }
-          },
-          {
-            id: 'd7-t2',
-            title: 'Update Resume Bullets with Sprint Deliverables',
-            description: 'Rewrite past project bullet points using the Action + Metric + Technical Tooling formula.',
-            duration: '45 min',
-            type: 'review',
-            completed: false,
-            deliverable: 'Refactored resume highlighting bridged skills ready for submission.',
-            resource: {
-              title: 'Tech Resume Guide',
-              url: 'https://github.com'
-            }
-          }
-        ],
-        quiz: {
-          id: 'q-d7',
-          question: 'Which resume bullet point is most effective for senior technical recruiters?',
-          options: [
-            'Used Java and Kafka on a project',
-            'Architected event-driven microservice using Java and Kafka with idempotent outbox pattern, handling 5,000 req/sec with zero lost transactions',
-            'Worked on backend development team',
-            'Read documentation about distributed systems'
-          ],
-          correctIndex: 1,
-          explanation: 'Senior hiring managers look for quantifiable metrics, architectural patterns, and business outcomes.'
-        }
-      }
-    ]
+    days: baseDays
   };
 }
 

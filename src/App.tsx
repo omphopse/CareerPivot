@@ -154,7 +154,7 @@ export function App() {
       await storageService.saveInterviewEvaluation(evaluation);
 
       if (evaluation.score < 60) {
-        showToast(`AI Graded: ${evaluation.score}/100. Weakness flagged! Click 'Sync to 7-Day Sprint'`);
+        showToast(`AI Graded: ${evaluation.score}/100. Weakness flagged! Click 'Sync Weakness & Extend Sprint'`);
       } else {
         showToast(`AI Graded: ${evaluation.score}/100. Strong performance!`);
       }
@@ -174,7 +174,7 @@ export function App() {
       spread: 70,
       origin: { y: 0.5 }
     });
-    showToast('⚡ Sprint Plan recalibrated! Injected remedial practice task into Day 4.');
+    showToast(`⚡ Sprint dynamically extended to ${recalibrated.totalDays} Days! Added Day ${recalibrated.totalDays} for remedial practice.`);
   };
 
   const handleUpdateApplications = async (updatedApps: JobApplication[]) => {

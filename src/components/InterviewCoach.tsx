@@ -297,7 +297,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
                   title="Dynamically modifies 7-day sprint plan based on this evaluation"
                 >
                   <Zap className="w-3.5 h-3.5" />
-                  <span>{recalibratedSuccess ? '✓ Sprint Recalibrated!' : 'Sync to 7-Day Sprint'}</span>
+                  <span>{recalibratedSuccess ? '✓ Sprint Extended & Synced!' : 'Sync Weakness & Extend Sprint'}</span>
                 </button>
               </div>
 
@@ -406,13 +406,21 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
               </div>
 
               {recalibratedSuccess && (
-                <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between text-xs text-emerald-200">
-                  <span>Sprint Plan dynamically updated with remedial practice!</span>
+                <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-between text-xs text-amber-200">
+                  <div className="space-y-0.5">
+                    <span className="font-bold flex items-center space-x-1 text-amber-300">
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>Sprint Dynamically Extended!</span>
+                    </span>
+                    <p className="text-[11px] text-slate-300">
+                      Added Day {sprintPlan.days.length} dedicated to remedial practice for {latestEvaluation.weakTopics[0] || 'this weakness'}.
+                    </p>
+                  </div>
                   <button
                     onClick={onNavigateToSprint}
-                    className="font-bold underline text-emerald-300 hover:text-white flex items-center space-x-1"
+                    className="font-bold underline text-amber-300 hover:text-white flex items-center space-x-1 cursor-pointer shrink-0 ml-3"
                   >
-                    <span>View Sprint</span>
+                    <span>View Day {sprintPlan.days.length}</span>
                     <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
