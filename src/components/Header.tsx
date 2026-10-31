@@ -6,7 +6,6 @@ import {
   CalendarCheck,
   Headphones,
   Briefcase,
-  Settings,
   PlusCircle,
   Flame,
   CheckCircle2,
@@ -21,7 +20,6 @@ import type { AuthUser } from '../types';
 interface HeaderProps {
   activeTab: 'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker';
   setActiveTab: (tab: 'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker') => void;
-  onOpenSettings: () => void;
   onStartNewAnalysis: () => void;
   streakCount: number;
   currentUser?: AuthUser | null;
@@ -31,7 +29,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
-  onOpenSettings,
   onStartNewAnalysis,
   streakCount,
   currentUser,
@@ -174,15 +171,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>{supabaseActive ? 'Supabase' : 'Local DB'}</span>
               </span>
             </div>
-
-            {/* Settings Modal Toggle */}
-            <button
-              onClick={onOpenSettings}
-              title="Configure API Keys & Database"
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-colors cursor-pointer"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
 
             {/* Authenticated User Profile & Sign Out */}
             {currentUser && (

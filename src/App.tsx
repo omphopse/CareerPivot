@@ -5,7 +5,6 @@ import { CareerDiagnosis } from './components/CareerDiagnosis';
 import { SprintPlanView } from './components/SprintPlanView';
 import { InterviewCoach } from './components/InterviewCoach';
 import { ApplicationTracker } from './components/ApplicationTracker';
-import { SettingsModal } from './components/SettingsModal';
 import { CompulsoryOnboarding } from './components/CompulsoryOnboarding';
 import { AuthPortal } from './components/AuthPortal';
 import type {
@@ -25,7 +24,6 @@ import { Zap, Compass } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker'>('dashboard');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzingStep, setAnalyzingStep] = useState<string>('');
   const [evaluatingQuestionIds, setEvaluatingQuestionIds] = useState<string[]>([]);
@@ -497,7 +495,6 @@ export function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenSettings={() => setIsSettingsOpen(true)}
         onStartNewAnalysis={handleStartNewAnalysis}
         streakCount={streakCount}
         currentUser={currentUser}
@@ -575,13 +572,6 @@ export function App() {
           </div>
         </div>
       </footer>
-
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        onResetData={handleResetData}
-      />
     </div>
   );
 }

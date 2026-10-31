@@ -9,22 +9,12 @@ import {
 const envSupabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const envSupabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Let user configure Supabase from Settings modal or environment
+// Application Supabase configuration strictly driven by environment
 export const getSupabaseConfig = () => {
-  const customUrl = localStorage.getItem('career_pilot_supabase_url');
-  const customKey = localStorage.getItem('career_pilot_supabase_key');
   return {
-    url: customUrl || envSupabaseUrl,
-    key: customKey || envSupabaseKey
+    url: envSupabaseUrl,
+    key: envSupabaseKey
   };
-};
-
-export const setSupabaseConfig = (url: string, key: string) => {
-  if (url) localStorage.setItem('career_pilot_supabase_url', url);
-  else localStorage.removeItem('career_pilot_supabase_url');
-
-  if (key) localStorage.setItem('career_pilot_supabase_key', key);
-  else localStorage.removeItem('career_pilot_supabase_key');
 };
 
 let supabaseInstance: SupabaseClient | null = null;

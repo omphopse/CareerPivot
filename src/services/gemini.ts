@@ -12,16 +12,11 @@ import type {
 const envGeminiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 export const getGeminiApiKey = (): string => {
-  return localStorage.getItem('career_pilot_gemini_key') || envGeminiKey;
-};
-
-export const setGeminiApiKey = (key: string): void => {
-  if (key) localStorage.setItem('career_pilot_gemini_key', key);
-  else localStorage.removeItem('career_pilot_gemini_key');
+  return envGeminiKey;
 };
 
 export const hasGeminiApiKey = (): boolean => {
-  return Boolean(getGeminiApiKey().trim());
+  return Boolean(envGeminiKey.trim());
 };
 
 // Helper to call Gemini REST API with fallback models
