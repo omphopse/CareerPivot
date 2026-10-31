@@ -16,8 +16,6 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { CareerDiagnosisResult, SkillItem, StrengthLevel } from '../types';
-import { DEMO_RESUME, DEMO_JOB_DESCRIPTION } from '../data/demoData';
-
 interface CareerDiagnosisProps {
   diagnosis: CareerDiagnosisResult;
   onAnalyze: (resume: string, jd: string) => Promise<void>;
@@ -32,8 +30,8 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
   isAnalyzing
 }) => {
   const [activeTab, setActiveTab] = useState<'results' | 'input'>('results');
-  const [resumeText, setResumeText] = useState(DEMO_RESUME);
-  const [jdText, setJdText] = useState(DEMO_JOB_DESCRIPTION);
+  const [resumeText, setResumeText] = useState('');
+  const [jdText, setJdText] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'match' | 'gap' | 'weak'>('all');
   const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null);
 
@@ -44,11 +42,6 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
     }
     await onAnalyze(resumeText, jdText);
     setActiveTab('results');
-  };
-
-  const handleLoadDemoInputs = () => {
-    setResumeText(DEMO_RESUME);
-    setJdText(DEMO_JOB_DESCRIPTION);
   };
 
   const allSkills: (SkillItem & { type: 'match' | 'gap' | 'weak' })[] = [
@@ -105,20 +98,11 @@ export const CareerDiagnosis: React.FC<CareerDiagnosisProps> = ({
       {/* Input View */}
       {activeTab === 'input' && (
         <div className="glass-panel p-6 rounded-3xl space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
-            <div>
-              <h2 className="text-base font-bold text-white">Resume & Job Description Analysis Input</h2>
-              <p className="text-xs text-slate-400">
-                Paste your current resume and target job posting, or load our pre-configured Java Backend pivot demo.
-              </p>
-            </div>
-            <button
-              onClick={handleLoadDemoInputs}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all self-start sm:self-auto"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Load Alex Morgan Demo Story</span>
-            </button>
+          <div className="pb-4 border-b border-slate-800">
+            <h2 className="text-base font-bold text-white">Upload or Paste Resume & Target Job Description</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Input your current profile and target job description to run a live forensic gap audit.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -49,12 +49,12 @@ export const isSupabaseConnected = (): boolean => {
   return Boolean(url && key && url.startsWith('http'));
 };
 
-// Persistence API with hybrid Supabase / LocalStorage fallback
 const STORAGE_KEYS = {
   DIAGNOSIS: 'cp_diagnosis_data',
   SPRINT_PLAN: 'cp_sprint_plan_data',
   INTERVIEWS: 'cp_interviews_data',
-  APPLICATIONS: 'cp_applications_data'
+  APPLICATIONS: 'cp_applications_data',
+  QUESTIONS: 'cp_questions_data'
 };
 
 export const storageService = {
@@ -176,5 +176,24 @@ export const storageService = {
   getJobApplications(): JobApplication[] {
     const raw = localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
     return raw ? JSON.parse(raw) : [];
+  },
+
+  // Dynamic Interview Questions
+  saveInterviewQuestions(questions: any[]): void {
+    localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(questions));
+  },
+
+  getInterviewQuestions(): any[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.QUESTIONS);
+    return raw ? JSON.parse(raw) : [];
+  },
+
+  // Reset/Clear Pivot Session
+  clearPivotData(): void {
+    localStorage.removeItem(STORAGE_KEYS.DIAGNOSIS);
+    localStorage.removeItem(STORAGE_KEYS.SPRINT_PLAN);
+    localStorage.removeItem(STORAGE_KEYS.INTERVIEWS);
+    localStorage.removeItem(STORAGE_KEYS.APPLICATIONS);
+    localStorage.removeItem(STORAGE_KEYS.QUESTIONS);
   }
 };

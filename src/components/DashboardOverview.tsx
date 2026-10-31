@@ -11,17 +11,17 @@ import {
   Clock,
   Layers,
   ChevronRight,
-  Flame,
-  Award
+  Award,
+  PlusCircle
 } from 'lucide-react';
-import { CareerDiagnosisResult, SprintPlan, JobApplication } from '../types';
+import type { CareerDiagnosisResult, SprintPlan, JobApplication } from '../types';
 
 interface DashboardOverviewProps {
   diagnosis: CareerDiagnosisResult;
   sprintPlan: SprintPlan;
   applications: JobApplication[];
   onNavigate: (tab: 'diagnosis' | 'sprint' | 'interview' | 'tracker') => void;
-  onTriggerDemoStory: () => void;
+  onStartNewAnalysis: () => void;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -29,7 +29,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   sprintPlan,
   applications,
   onNavigate,
-  onTriggerDemoStory
+  onStartNewAnalysis
 }) => {
   // Calculations
   const totalTasks = sprintPlan.days.reduce((acc, d) => acc + d.tasks.length, 0);
@@ -55,7 +55,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="space-y-3 max-w-2xl">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Career Pivot Roadmap Active</span>
+              <span>Live AI Career Pivot Roadmap</span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
@@ -63,7 +63,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </h1>
 
             <p className="text-sm text-slate-300 leading-relaxed">
-              Targeting <span className="text-white font-medium">{diagnosis.targetCompany}</span>. Career Pilot identified <span className="text-amber-400 font-semibold">{diagnosis.gapSkills.length} critical competency gaps</span> and calibrated a 7-day sprint to bridge your profile to senior production readiness.
+              Targeting <span className="text-white font-medium">{diagnosis.targetCompany}</span>. Career Pilot forensically analyzed your uploaded resume against the job description and discovered <span className="text-amber-400 font-semibold">{diagnosis.gapSkills.length} critical competency gaps</span> to bridge.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -77,27 +77,27 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </span>
               <span className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800 text-xs text-slate-300">
                 <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{activeInterviews} Live Interview Scheduled</span>
+                <span>{applications.length} Applications in CRM</span>
               </span>
             </div>
           </div>
 
-          {/* Quick Demo CTA for Hackathon Judges */}
-          <div className="w-full lg:w-auto p-4 rounded-2xl bg-slate-900/90 border border-amber-500/30 flex flex-col justify-between space-y-3 shrink-0 shadow-lg">
-            <div className="flex items-center space-x-2 text-amber-300 text-xs font-semibold">
-              <Zap className="w-4 h-4 fill-amber-400 text-amber-400 animate-bounce" />
-              <span>Hackathon Judge Walkthrough</span>
+          {/* Quick Action Box */}
+          <div className="w-full lg:w-auto p-4 rounded-2xl bg-slate-900/90 border border-indigo-500/30 flex flex-col justify-between space-y-3 shrink-0 shadow-lg">
+            <div className="flex items-center space-x-2 text-indigo-300 text-xs font-semibold">
+              <Zap className="w-4 h-4 fill-indigo-400 text-indigo-400" />
+              <span>Target Role Analysis</span>
             </div>
             <p className="text-xs text-slate-300 max-w-xs">
-              Experience the end-to-end story: candidate fails a Kafka question, AI auto-updates the 7-day learning plan.
+              Want to evaluate a different resume or another job description? Start a new forensic evaluation.
             </p>
             <div className="flex items-center space-x-2 pt-1">
               <button
-                onClick={onTriggerDemoStory}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                onClick={onStartNewAnalysis}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
               >
-                <span>Trigger Judge Story</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>New Pivot Evaluation</span>
               </button>
             </div>
           </div>
@@ -121,7 +121,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <span className="text-3xl font-extrabold text-white">{diagnosis.roleFitScore}%</span>
             <span className="text-xs font-semibold text-emerald-400 flex items-center space-x-0.5">
               <TrendingUp className="w-3 h-3" />
-              <span>+14% this week</span>
+              <span>Live Evaluation</span>
             </span>
           </div>
           <div className="mt-3 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
@@ -183,7 +183,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               {diagnosis.matchedSkills.length}/{diagnosis.matchedSkills.length + diagnosis.gapSkills.length}
             </span>
             <span className="text-xs font-semibold text-amber-400">
-              {diagnosis.gapSkills.length} Gaps to Bridge
+              {diagnosis.gapSkills.length} Gaps Identified
             </span>
           </div>
           <div className="mt-3 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
@@ -220,17 +220,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="mt-4 flex items-baseline justify-between">
             <span className="text-3xl font-extrabold text-white">{applications.length}</span>
             <span className="text-xs font-semibold text-emerald-400">
-              {activeInterviews} In Interviews
+              {activeInterviews} Interviewing
             </span>
           </div>
           <div className="mt-3 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
             <div
               className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, applications.length * 25)}%` }}
+              style={{ width: `${Math.min(100, Math.max(20, applications.length * 25))}%` }}
             />
           </div>
           <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Apex & Revolut Next</span>
+            <span>{diagnosis.targetCompany}</span>
             <span className="text-indigo-300 font-medium group-hover:underline flex items-center">
               Track Apps <ChevronRight className="w-3 h-3" />
             </span>
@@ -246,15 +246,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div>
               <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                 <Award className="w-5 h-5 text-indigo-400" />
-                <span>Target Skill Mastery & Adaptive Index</span>
+                <span>Live Skill Mastery & Adaptive Index</span>
               </h2>
               <p className="text-xs text-slate-400">
-                Dynamically weighted based on your 7-day task completions and mock interview answers
+                Dynamically weighted based on your sprint completions and mock interview evaluations
               </p>
             </div>
             <button
               onClick={() => onNavigate('interview')}
-              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center space-x-1"
+              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 cursor-pointer"
             >
               <span>Test Knowledge</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -265,7 +265,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {Object.entries(sprintPlan.masteryScores).map(([skillName, score]) => {
               const isLow = score < 40;
               const isMedium = score >= 40 && score < 75;
-              const isHigh = score >= 75;
 
               return (
                 <div key={skillName} className="space-y-1.5">
@@ -302,7 +301,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <Zap className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
-                  <span className="font-bold text-indigo-200">Adaptive Engine Update:</span>
+                  <span className="font-bold text-indigo-200">Adaptive Engine Log:</span>
                   <span className="text-[10px] text-indigo-400">{sprintPlan.adaptiveLogs[0].timestamp}</span>
                 </div>
                 <p className="text-slate-300">{sprintPlan.adaptiveLogs[0].changeSummary}</p>
@@ -339,8 +338,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 </div>
                 <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-slate-100">{nextPendingTask?.title}</p>
-                  <p className="text-[11px] text-slate-400">{nextPendingTask?.duration} • {nextPendingTask?.type}</p>
+                  <p className="text-xs font-semibold text-slate-100">{nextPendingTask?.title || 'Review today\'s milestones'}</p>
+                  <p className="text-[11px] text-slate-400">{nextPendingTask?.duration || '30 min'} • {nextPendingTask?.type || 'concept'}</p>
                 </div>
               </div>
             </div>

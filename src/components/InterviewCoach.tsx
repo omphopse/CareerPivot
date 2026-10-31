@@ -5,29 +5,24 @@ import {
   MicOff,
   Sparkles,
   Send,
-  CheckCircle2,
   AlertOctagon,
   Award,
   Zap,
   ArrowRight,
   RefreshCw,
   HelpCircle,
-  BookOpen,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import {
+import type {
   InterviewQuestion,
   InterviewEvaluation,
   SprintPlan
 } from '../types';
-import {
-  DEMO_INTERVIEW_QUESTIONS,
-  DEMO_WEAK_ANSWER
-} from '../data/demoData';
 
 interface InterviewCoachProps {
   sprintPlan: SprintPlan;
+  questions: InterviewQuestion[];
   onEvaluateAnswer: (
     question: InterviewQuestion,
     answer: string
@@ -40,15 +35,31 @@ interface InterviewCoachProps {
 
 export const InterviewCoach: React.FC<InterviewCoachProps> = ({
   sprintPlan,
+  questions,
   onEvaluateAnswer,
   onRecalibrateSprintPlan,
   onNavigateToSprint,
   isEvaluating,
   latestEvaluation
 }) => {
-  const [selectedQuestion, setSelectedQuestion] = useState<InterviewQuestion>(
-    DEMO_INTERVIEW_QUESTIONS[0]
-  );
+  const activeQuestions = questions && questions.length > 0 ? questions : [
+    {
+      id: 'iq-live-1',
+      role: sprintPlan.targetRole || 'Target Role',
+      category: 'Core System Architecture',
+      difficulty: 'Senior' as const,
+      question: `How do you architect high-scale, resilient microservices for ${sprintPlan.targetRole} handling concurrent data consistency?`,
+      context: 'Tests deep architectural knowledge of distributed transactions, failure recovery, and concurrency.',
+      keyPointsExpected: [
+        'Idempotent processing and deduplication',
+        'Database isolation levels and locking mechanisms',
+        'Circuit breakers and rate limiting',
+        'Transaction boundaries and event publishing'
+      ]
+    }
+  ];
+
+  const [selectedQuestion, setSelectedQuestion] = useState<InterviewQuestion>(activeQuestions[0]);
   const [userAnswer, setUserAnswer] = useState<string>('');
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [showExpectedPoints, setShowExpectedPoints] = useState<boolean>(false);
@@ -94,10 +105,6 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
     }
   };
 
-  const handleLoadWeakAnswer = () => {
-    setUserAnswer(DEMO_WEAK_ANSWER);
-  };
-
   const handleSubmit = async () => {
     if (!userAnswer.trim()) {
       alert('Please provide an answer before submitting.');
@@ -125,20 +132,20 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
             <span>AI Technical Interview Coach & Rubric Evaluator</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Role-specific technical questioning, multi-criteria rubric scoring, and automatic adaptive sprint syncing
+            Live technical questions generated for {sprintPlan.targetRole}, evaluated with rigorous rubrics
           </p>
         </div>
 
         {/* Question Selector dropdown / pills */}
-        <div className="flex items-center space-x-2">
-          {DEMO_INTERVIEW_QUESTIONS.map((q, idx) => (
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0">
+          {activeQuestions.map((q, idx) => (
             <button
-              key={q.id}
+              key={q.id || idx}
               onClick={() => {
                 setSelectedQuestion(q);
                 setUserAnswer('');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 selectedQuestion.id === q.id
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
@@ -151,7 +158,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left 6 or 7 Cols: Question Card & Answer Input */}
+        {/* Left 6 Cols: Question Card & Answer Input */}
         <div className="lg:col-span-6 space-y-6">
           {/* Question Prompt Card */}
           <div className="glass-panel p-6 rounded-3xl space-y-4">
@@ -202,25 +209,16 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
           <div className="glass-panel p-6 rounded-3xl space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-1.5">
-                <span>Your Technical Response</span>
+                <span>Your Live Technical Response</span>
               </label>
-
-              {/* Judge Quick Action to Load Weak Answer */}
-              <button
-                onClick={handleLoadWeakAnswer}
-                className="flex items-center space-x-1 text-[11px] font-semibold text-amber-300 hover:text-amber-200 px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 transition-all cursor-pointer"
-                title="Loads candidate saying: 'I just put @KafkaListener and Kafka drops it...'"
-              >
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                <span>⚡ Judge Demo Weak Answer</span>
-              </button>
+              <span className="text-[11px] text-slate-500">{userAnswer.length} characters</span>
             </div>
 
             <textarea
               rows={8}
               value={userAnswer}
               onChange={(e) => setUserAnswer(e.target.value)}
-              placeholder="Explain your approach, design patterns, fault tolerance, and code annotations..."
+              placeholder="Explain your architectural approach, concurrency patterns, edge cases, and code structure..."
               className="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm leading-relaxed focus:outline-none focus:border-indigo-500 transition-colors"
             />
 
@@ -240,7 +238,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
 
               <button
                 onClick={handleSubmit}
-                disabled={isEvaluating}
+                disabled={isEvaluating || !userAnswer.trim()}
                 className="flex items-center space-x-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
               >
                 {isEvaluating ? (
@@ -267,7 +265,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
               <div className="flex items-start justify-between pb-4 border-b border-slate-800">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    AI Rubric Evaluation
+                    Live AI Rubric Evaluation
                   </span>
                   <div className="flex items-baseline space-x-3 mt-1">
                     <span className="text-3xl sm:text-4xl font-extrabold text-white">
@@ -296,7 +294,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
                       ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
                       : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/20'
                   }`}
-                  title="Dynamically modifies 7-day sprint plan based on this weak score"
+                  title="Dynamically modifies 7-day sprint plan based on this evaluation"
                 >
                   <Zap className="w-3.5 h-3.5" />
                   <span>{recalibratedSuccess ? '✓ Sprint Recalibrated!' : 'Sync to 7-Day Sprint'}</span>
@@ -409,12 +407,12 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
 
               {recalibratedSuccess && (
                 <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between text-xs text-emerald-200">
-                  <span>Sprint Day 4 recalibrated with Kafka Deduplication tasks!</span>
+                  <span>Sprint Plan dynamically updated with remedial practice!</span>
                   <button
                     onClick={onNavigateToSprint}
                     className="font-bold underline text-emerald-300 hover:text-white flex items-center space-x-1"
                   >
-                    <span>View Day 4</span>
+                    <span>View Sprint</span>
                     <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
@@ -429,7 +427,7 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({
               <div className="max-w-xs space-y-1.5">
                 <h3 className="text-base font-bold text-white">AI Evaluation Ready</h3>
                 <p className="text-xs text-slate-400">
-                  Submit your answer or click <strong className="text-amber-400 font-semibold">Judge Demo Weak Answer</strong> to experience how Career Pilot identifies weaknesses and updates the learning sprint!
+                  Type your answer or use voice dictation and submit for immediate rubric grading and weakness tagging.
                 </p>
               </div>
             </div>

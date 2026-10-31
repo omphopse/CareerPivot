@@ -7,7 +7,7 @@ import {
   Headphones,
   Briefcase,
   Settings,
-  Sparkles,
+  PlusCircle,
   Flame,
   CheckCircle2,
   Database
@@ -19,7 +19,7 @@ interface HeaderProps {
   activeTab: 'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker';
   setActiveTab: (tab: 'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker') => void;
   onOpenSettings: () => void;
-  onLoadDemoStory: () => void;
+  onStartNewAnalysis: () => void;
   streakCount: number;
 }
 
@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   onOpenSettings,
-  onLoadDemoStory,
+  onStartNewAnalysis,
   streakCount
 }) => {
   const geminiActive = hasGeminiApiKey();
@@ -120,16 +120,16 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </nav>
 
-          {/* Quick Actions & Demo Story Trigger */}
+          {/* Quick Actions */}
           <div className="flex items-center space-x-2.5">
-            {/* Quick Demo Button for Hackathon Judges */}
+            {/* New Career Pivot Intake Button */}
             <button
-              onClick={onLoadDemoStory}
-              title="Loads the complete Java Backend Pivot demo scenario for Hackathon Judges"
-              className="group relative flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border border-amber-500/40 shadow-sm transition-all"
+              onClick={onStartNewAnalysis}
+              title="Upload a new resume & job description to begin a fresh pivot evaluation"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-12 transition-transform" />
-              <span>⚡ Judge Demo Story</span>
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>New Pivot Analysis</span>
             </button>
 
             {/* Streak Counter */}
@@ -144,7 +144,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Status pills */}
             <div className="hidden xl:flex items-center space-x-2 text-[11px]">
               <span
-                title={geminiActive ? 'Gemini API Connected' : 'Running on High-Fidelity Gemini AI Simulation'}
+                title={geminiActive ? 'Gemini 3.8 Flash Connected' : 'Running on High-Fidelity Gemini AI Simulation'}
                 className={`flex items-center space-x-1 px-2 py-0.5 rounded border ${
                   geminiActive
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
@@ -152,7 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Gemini {geminiActive ? 'Live' : 'Sim'}</span>
+                <span>Gemini {geminiActive ? '3.8 Live' : 'Sim'}</span>
               </span>
 
               <span
@@ -172,7 +172,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onOpenSettings}
               title="Configure API Keys & Database"
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-colors"
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-colors cursor-pointer"
             >
               <Settings className="w-4 h-4" />
             </button>

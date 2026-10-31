@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CareerDiagnosis } from './components/CareerDiagnosis';
@@ -6,74 +6,135 @@ import { SprintPlanView } from './components/SprintPlanView';
 import { InterviewCoach } from './components/InterviewCoach';
 import { ApplicationTracker } from './components/ApplicationTracker';
 import { SettingsModal } from './components/SettingsModal';
-import {
+import { CompulsoryOnboarding } from './components/CompulsoryOnboarding';
+import type {
   CareerDiagnosisResult,
   SprintPlan,
   JobApplication,
   InterviewEvaluation,
   InterviewQuestion
 } from './types';
-import {
-  INITIAL_DIAGNOSIS,
-  INITIAL_SPRINT_PLAN,
-  INITIAL_JOB_APPLICATIONS,
-  DEMO_WEAK_EVALUATION,
-  DEMO_RESUME,
-  DEMO_JOB_DESCRIPTION
-} from './data/demoData';
 import { storageService } from './services/supabase';
 import { aiService } from './services/gemini';
 import confetti from 'canvas-confetti';
-import { Sparkles, CheckCircle2, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'diagnosis' | 'sprint' | 'interview' | 'tracker'>('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzingStep, setAnalyzingStep] = useState<string>('');
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Core Data States with Local/Supabase Persistence
-  const [diagnosis, setDiagnosis] = useState<CareerDiagnosisResult>(() => {
-    return storageService.getDiagnosis() || INITIAL_DIAGNOSIS;
+  // Core Data States - initialized strictly from storage or null
+  const [diagnosis, setDiagnosis] = useState<CareerDiagnosisResult | null>(() => {
+    return storageService.getDiagnosis();
   });
 
-  const [sprintPlan, setSprintPlan] = useState<SprintPlan>(() => {
-    return storageService.getSprintPlan() || INITIAL_SPRINT_PLAN;
+  const [sprintPlan, setSprintPlan] = useState<SprintPlan | null>(() => {
+    return storageService.getSprintPlan();
+  });
+
+  const [questions, setQuestions] = useState<InterviewQuestion[]>(() => {
+    return storageService.getInterviewQuestions();
   });
 
   const [applications, setApplications] = useState<JobApplication[]>(() => {
-    const saved = storageService.getJobApplications();
-    return saved.length > 0 ? saved : INITIAL_JOB_APPLICATIONS;
+    return storageService.getJobApplications();
   });
 
   const [latestEvaluation, setLatestEvaluation] = useState<InterviewEvaluation | null>(() => {
     const list = storageService.getInterviewEvaluations();
-    return list.length > 0 ? list[0] : DEMO_WEAK_EVALUATION;
+    return list.length > 0 ? list[0] : null;
   });
 
-  const [streakCount, setStreakCount] = useState(4);
+  const [streakCount] = useState(1);
 
-  // Show Toast
+  // Show Toast helper
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
-    }, 4000);
+    }, 4500);
   };
 
-  // Handlers
-  const handleAnalyze = async (resume: string, jd: string) => {
+  // Live Comprehensive AI Intake Pipeline
+  const handleStartAnalysis = async (
+    resume: string,
+    jd: string,
+    manualRole?: string,
+    manualCompany?: string
+  ) => {
     setIsAnalyzing(true);
     try {
-      const result = await aiService.analyzeRoleFit(resume, jd);
-      setDiagnosis(result);
-      await storageService.saveDiagnosis(result);
-      showToast('Career Diagnosis generated successfully!');
+      // Step 1: Forensic Career Diagnosis
+      setAnalyzingStep('1/4: Gemini is forensically auditing resume evidence against JD...');
+      const diagResult = await aiService.analyzeRoleFit(resume, jd);
+
+      if (manualRole) diagResult.targetRole = manualRole;
+      if (manualCompany) diagResult.targetCompany = manualCompany;
+
+      // Step 2: Personalized 7-Day Sprint Plan
+      setAnalyzingStep('2/4: Generating custom 7-day curriculum, daily tasks & quizzes...');
+      const planResult = await aiService.generatePersonalizedSprintPlan(
+        diagResult.targetRole,
+        diagResult.targetCompany,
+        diagResult.gapSkills,
+        diagResult.matchedSkills
+      );
+
+      // Step 3: Role-Specific Technical Interview Questions
+      setAnalyzingStep('3/4: Formulating targeted technical mock interview questions...');
+      const generatedQuestions = await aiService.generateRoleInterviewQuestions(
+        diagResult.targetRole,
+        diagResult.gapSkills,
+        diagResult.interviewFocusAreas
+      );
+
+      // Step 4: Application CRM Initialization
+      setAnalyzingStep('4/4: Initializing your job application pipeline CRM...');
+      const initialApp: JobApplication = {
+        id: `app-${Date.now()}`,
+        company: diagResult.targetCompany || 'Target Employer',
+        role: diagResult.targetRole || 'Target Role',
+        location: 'Remote / Hybrid',
+        salary: '$150,000 - $185,000',
+        status: 'applied',
+        fitScore: diagResult.roleFitScore,
+        jobUrl: '#',
+        nextAction: `Complete Day 1 sprint milestones for ${diagResult.targetRole}`,
+        followUpDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
+        notes: `AI Fit Score: ${diagResult.roleFitScore}%. Focus on closing ${diagResult.gapSkills.length} identified gaps.`,
+        dateAdded: new Date().toISOString().split('T')[0]
+      };
+
+      // Persist to storage and Supabase
+      await storageService.saveDiagnosis(diagResult);
+      await storageService.saveSprintPlan(planResult);
+      storageService.saveInterviewQuestions(generatedQuestions);
+      await storageService.saveJobApplications([initialApp]);
+
+      // Update state
+      setDiagnosis(diagResult);
+      setSprintPlan(planResult);
+      setQuestions(generatedQuestions);
+      setApplications([initialApp]);
+      setLatestEvaluation(null);
+
+      confetti({
+        particleCount: 120,
+        spread: 100,
+        origin: { y: 0.5 }
+      });
+
+      setActiveTab('dashboard');
+      showToast(`⚡ Live analysis complete for ${diagResult.targetRole}!`);
     } catch (err: any) {
-      alert(`Analysis error: ${err?.message || 'Failed to analyze'}`);
+      alert(`AI Analysis error: ${err?.message || 'Failed to complete evaluation'}`);
     } finally {
       setIsAnalyzing(false);
+      setAnalyzingStep('');
     }
   };
 
@@ -92,11 +153,10 @@ export function App() {
       setLatestEvaluation(evaluation);
       await storageService.saveInterviewEvaluation(evaluation);
 
-      // If low score, offer or auto-recalibrate
-      if (evaluation.score < 55) {
-        showToast(`AI Graded: ${evaluation.score}/100. Critical Gap identified! Click 'Sync to 7-Day Sprint'`);
+      if (evaluation.score < 60) {
+        showToast(`AI Graded: ${evaluation.score}/100. Weakness flagged! Click 'Sync to 7-Day Sprint'`);
       } else {
-        showToast(`AI Graded: ${evaluation.score}/100. Passed evaluation!`);
+        showToast(`AI Graded: ${evaluation.score}/100. Strong performance!`);
       }
       return evaluation;
     } finally {
@@ -105,15 +165,16 @@ export function App() {
   };
 
   const handleRecalibrateSprintPlan = async (evaluation: InterviewEvaluation) => {
+    if (!sprintPlan) return;
     const recalibrated = aiService.recalibrateSprintPlan(sprintPlan, evaluation);
     setSprintPlan(recalibrated);
     await storageService.saveSprintPlan(recalibrated);
     confetti({
-      particleCount: 50,
+      particleCount: 60,
       spread: 70,
       origin: { y: 0.5 }
     });
-    showToast('⚡ 7-Day Sprint Plan recalibrated! Injected remedial Kafka deduplication build task into Day 4.');
+    showToast('⚡ Sprint Plan recalibrated! Injected remedial practice task into Day 4.');
   };
 
   const handleUpdateApplications = async (updatedApps: JobApplication[]) => {
@@ -121,38 +182,38 @@ export function App() {
     await storageService.saveJobApplications(updatedApps);
   };
 
-  // Hackathon Judge Demo Story Walkthrough
-  const handleLoadDemoStory = () => {
-    setDiagnosis(INITIAL_DIAGNOSIS);
-    storageService.saveDiagnosis(INITIAL_DIAGNOSIS);
-
-    setSprintPlan(INITIAL_SPRINT_PLAN);
-    storageService.saveSprintPlan(INITIAL_SPRINT_PLAN);
-
-    setApplications(INITIAL_JOB_APPLICATIONS);
-    storageService.saveJobApplications(INITIAL_JOB_APPLICATIONS);
-
-    setLatestEvaluation(DEMO_WEAK_EVALUATION);
-    storageService.saveInterviewEvaluation(DEMO_WEAK_EVALUATION);
-
-    confetti({
-      particleCount: 80,
-      spread: 100,
-      origin: { y: 0.4 }
-    });
-
-    setActiveTab('dashboard');
-    showToast('⚡ Judge Demo Story Loaded: Alex Morgan (Node.js) → Senior Java Backend Engineer');
+  const handleStartNewAnalysis = () => {
+    if (confirm('Start a fresh Career Pivot analysis? This will clear current session data.')) {
+      storageService.clearPivotData();
+      setDiagnosis(null);
+      setSprintPlan(null);
+      setQuestions([]);
+      setApplications([]);
+      setLatestEvaluation(null);
+      showToast('Ready for new Resume & Job Description input.');
+    }
   };
 
   const handleResetData = () => {
-    localStorage.clear();
-    setDiagnosis(INITIAL_DIAGNOSIS);
-    setSprintPlan(INITIAL_SPRINT_PLAN);
-    setApplications(INITIAL_JOB_APPLICATIONS);
-    setLatestEvaluation(DEMO_WEAK_EVALUATION);
-    showToast('Data reset to fresh demonstration baseline.');
+    storageService.clearPivotData();
+    setDiagnosis(null);
+    setSprintPlan(null);
+    setQuestions([]);
+    setApplications([]);
+    setLatestEvaluation(null);
+    showToast('All data reset.');
   };
+
+  // Compulsory Onboarding Gate: If no active diagnosis exists, show intake screen!
+  if (!diagnosis || !sprintPlan) {
+    return (
+      <CompulsoryOnboarding
+        onStartAnalysis={handleStartAnalysis}
+        isAnalyzing={isAnalyzing}
+        analyzingStep={analyzingStep}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
@@ -171,7 +232,7 @@ export function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onLoadDemoStory={handleLoadDemoStory}
+        onStartNewAnalysis={handleStartNewAnalysis}
         streakCount={streakCount}
       />
 
@@ -183,14 +244,14 @@ export function App() {
             sprintPlan={sprintPlan}
             applications={applications}
             onNavigate={(tab) => setActiveTab(tab)}
-            onTriggerDemoStory={handleLoadDemoStory}
+            onStartNewAnalysis={handleStartNewAnalysis}
           />
         )}
 
         {activeTab === 'diagnosis' && (
           <CareerDiagnosis
             diagnosis={diagnosis}
-            onAnalyze={handleAnalyze}
+            onAnalyze={async (r, j) => handleStartAnalysis(r, j)}
             onNavigateToSprint={() => setActiveTab('sprint')}
             isAnalyzing={isAnalyzing}
           />
@@ -207,6 +268,7 @@ export function App() {
         {activeTab === 'interview' && (
           <InterviewCoach
             sprintPlan={sprintPlan}
+            questions={questions}
             onEvaluateAnswer={handleEvaluateAnswer}
             onRecalibrateSprintPlan={handleRecalibrateSprintPlan}
             onNavigateToSprint={() => setActiveTab('sprint')}
@@ -229,12 +291,12 @@ export function App() {
           <div className="flex items-center space-x-2">
             <span className="font-bold text-white">Career Pilot</span>
             <span>•</span>
-            <span>AI Career Pivot & Skill Gap Coach</span>
+            <span>Live AI Career Pivot Coach</span>
           </div>
           <div className="flex items-center space-x-4 text-slate-400">
-            <span>Powered by Google Gemini 1.5/2.0 API</span>
+            <span>Google Gemini 3.8 Flash</span>
             <span>•</span>
-            <span>Supabase PostgreSQL Backend</span>
+            <span>Supabase PostgreSQL</span>
             <span>•</span>
             <span>React + Vite + Tailwind</span>
           </div>
