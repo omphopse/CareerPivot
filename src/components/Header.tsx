@@ -11,7 +11,6 @@ import {
   Menu,
   X,
   User,
-  ChevronDown,
   Check
 } from 'lucide-react';
 import type { AuthUser } from '../types';
@@ -33,10 +32,8 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onSignOut
 }) => {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [burgerMenuOpen, setBurgerMenuOpen] = useState(false);
 
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const burgerRef = useRef<HTMLDivElement>(null);
 
   const navItems = [
@@ -48,15 +45,9 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'tracker' as const, label: 'Job Tracker', icon: Briefcase, desc: 'Application pipeline CRM' }
   ];
 
-  const currentNav = navItems.find((item) => item.id === activeTab) || navItems[1];
-  const CurrentIcon = currentNav.icon;
-
-  // Handle clicking outside to close popovers
+  // Handle clicking outside to close menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
       if (burgerRef.current && !burgerRef.current.contains(event.target as Node)) {
         setBurgerMenuOpen(false);
       }
@@ -64,7 +55,6 @@ export const Header: React.FC<HeaderProps> = ({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setDropdownOpen(false);
         setBurgerMenuOpen(false);
       }
     };
@@ -79,7 +69,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleNavClick = (tabId: typeof activeTab) => {
     setActiveTab(tabId);
-    setDropdownOpen(false);
     setBurgerMenuOpen(false);
   };
 
@@ -99,76 +88,12 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          {/* ─── Right: Actions, Module Selector & Burger Menu ─── */}
+          {/* ─── Right: Actions & Menu ─── */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            {/* Decluttered Module Dropdown Selector (Desktop & Tablet only: hidden on mobile) */}
-            <div className="hidden sm:block relative" ref={dropdownRef}>
-              <button
-                onClick={() => {
-                  setDropdownOpen(!dropdownOpen);
-                  setBurgerMenuOpen(false);
-                }}
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer shadow-2xs ${
-                  dropdownOpen
-                    ? 'bg-[#E8EBDD] border-[#C5D5BE] text-[#293C3A]'
-                    : 'bg-[#FFF7E8] hover:bg-[#E8EBDD] border-[#D9CFB9] text-[#293C3A]'
-                }`}
-                aria-haspopup="true"
-                aria-expanded={dropdownOpen}
-                title="Switch section"
-              >
-                <CurrentIcon className="w-3.5 h-3.5 text-[#C95F48]" />
-                <span className="font-bold text-[#293C3A]">{currentNav.label}</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-[#6B7169] transition-transform duration-200 ${
-                    dropdownOpen ? 'rotate-180 text-[#C95F48]' : ''
-                  }`}
-                />
-              </button>
-
-              {/* Module Dropdown Popover */}
-              {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 rounded-xl bg-[#FFF7E8] border border-[#D9CFB9] shadow-lg py-1.5 z-50 animate-fadeIn">
-                  <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#6B7169] border-b border-[#D9CFB9]/60">
-                    Switch Section
-                  </div>
-                  <div className="p-1 space-y-0.5">
-                    {navItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = activeTab === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => handleNavClick(item.id)}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-xs font-medium transition-colors cursor-pointer ${
-                            isActive
-                              ? 'bg-[#C95F48] text-white shadow-2xs font-semibold'
-                              : 'text-[#293C3A] hover:bg-[#E8EBDD]'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2.5">
-                            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-[#466E67]'}`} />
-                            <div className="flex flex-col">
-                              <span>{item.label}</span>
-                              <span className={`text-[10px] ${isActive ? 'text-white/80' : 'text-[#6B7169]'}`}>
-                                {item.desc}
-                              </span>
-                            </div>
-                          </div>
-                          {isActive && <Check className="w-3.5 h-3.5 text-white shrink-0 ml-2" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* New Assessment Quick Action */}
             <button
               onClick={() => {
                 onStartNewAnalysis();
-                setDropdownOpen(false);
                 setBurgerMenuOpen(false);
               }}
               title="Start a new career assessment"
@@ -179,13 +104,10 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="sm:hidden">New</span>
             </button>
 
-            {/* Burger Icon Menu Button (Available on Desktop, Tablet, & Mobile) */}
+            {/* Menu Button (Available on Desktop, Tablet, & Mobile) */}
             <div className="relative" ref={burgerRef}>
               <button
-                onClick={() => {
-                  setBurgerMenuOpen(!burgerMenuOpen);
-                  setDropdownOpen(false);
-                }}
+                onClick={() => setBurgerMenuOpen(!burgerMenuOpen)}
                 className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer shadow-2xs ${
                   burgerMenuOpen
                     ? 'bg-[#C95F48] text-white border-[#C95F48]'
