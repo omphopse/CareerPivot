@@ -4,13 +4,21 @@ import type { AuthSession } from '../types';
 const AUTH_SESSION_KEY = 'career_pivot_auth_session';
 const LEGACY_AUTH_SESSION_KEY = 'career_pilot_auth_session';
 
+export const getRedirectUrl = (): string => {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return `${window.location.origin}/`;
+  }
+  return 'https://career-pivot-sable.vercel.app/';
+};
+
 export const authService = {
   /**
    * Step 1: Send OTP to user's email address via Supabase Auth
    */
   async sendOtp(email: string): Promise<{ success: boolean; message: string }> {
     const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       return { success: false, message: 'Please enter a valid email address.' };
     }
 
@@ -23,10 +31,12 @@ export const authService = {
     }
 
     try {
+      const redirectUrl = getRedirectUrl();
       const { data, error } = await client.auth.signInWithOtp({
         email: cleanEmail,
         options: {
-          shouldCreateUser: true
+          shouldCreateUser: true,
+          emailRedirectTo: redirectUrl
         }
       });
 
@@ -74,6 +84,7 @@ export const authService = {
 
   /**
    * Step 2: Verify OTP code directly against Supabase GoTrue Auth
+   * Supports both 'email' (magic link/OTP for existing users) and 'signup' (email confirmation OTP for new registrations)
    */
   async verifyOtp(
     email: string,
@@ -92,11 +103,36 @@ export const authService = {
     }
 
     try {
-      const { data, error } = await client.auth.verifyOtp({
+      // Attempt 1: verify with type 'email' (standard for magiclink / passwordless OTP)
+      let { data, error } = await client.auth.verifyOtp({
         email: cleanEmail,
         token: cleanOtp,
         type: 'email'
       });
+
+      // Attempt 2: If 'email' type fails with token error, fallback to 'signup'
+      // This handles unconfirmed new users when Supabase generates a signup confirmation OTP
+      if (
+        error &&
+        (error.message?.toLowerCase().includes('token') ||
+          error.message?.toLowerCase().includes('invalid') ||
+          error.message?.toLowerCase().includes('expired') ||
+          error.status === 400 ||
+          error.status === 422)
+      ) {
+        const signupAttempt = await client.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanOtp,
+          type: 'signup'
+        });
+
+        if (!signupAttempt.error && signupAttempt.data?.session?.user) {
+          data = signupAttempt.data;
+          error = null;
+        } else if (signupAttempt.error && !signupAttempt.error.message?.toLowerCase().includes('token')) {
+          error = signupAttempt.error;
+        }
+      }
 
       if (error || !data?.session?.user) {
         return {

@@ -87,6 +87,31 @@ export function App() {
   // Restore authenticated session on app initialization & subscribe to auth changes
   useEffect(() => {
     let isMounted = true;
+
+    // 1. Process URL hash / query parameters for error messages or auth callbacks
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash ? window.location.hash.substring(1) : '';
+      const search = window.location.search ? window.location.search.substring(1) : '';
+      const params = new URLSearchParams(hash || search);
+      const errorDescription = params.get('error_description');
+      const error = params.get('error');
+
+      if (error || errorDescription) {
+        const readable = errorDescription
+          ? decodeURIComponent(errorDescription.replace(/\+/g, ' '))
+          : 'Authentication link has expired or is invalid. Please request a new verification code.';
+        showToast(`Verification issue: ${readable}`);
+        setShowAuthPortal(true);
+        window.history.replaceState(null, '', window.location.pathname);
+      } else if (params.get('access_token')) {
+        setTimeout(() => {
+          if (window.location.hash.includes('access_token')) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }, 800);
+      }
+    }
+
     authService
       .getSession()
       .then((session) => {
@@ -111,6 +136,9 @@ export function App() {
         setCurrentUser(session.user);
         loadUserData(session.user.id);
         setIsAuthChecking(false);
+        if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
       } else {
         setCurrentUser(null);
       }

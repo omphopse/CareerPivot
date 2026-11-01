@@ -52,7 +52,8 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess, onBackTo
     setInfoMessage(null);
 
     const clean = email.trim().toLowerCase();
-    if (!clean || !clean.includes('@') || !clean.includes('.')) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!clean || !emailRegex.test(clean)) {
       setErrorMessage('Please enter a valid email address.');
       return;
     }

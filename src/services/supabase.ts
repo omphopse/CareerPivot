@@ -25,7 +25,13 @@ export const getSupabaseClient = (): SupabaseClient | null => {
 
   try {
     if (!supabaseInstance) {
-      supabaseInstance = createClient(url, key);
+      supabaseInstance = createClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
     }
     return supabaseInstance;
   } catch (err) {
